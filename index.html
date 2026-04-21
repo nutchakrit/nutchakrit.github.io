@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NCK Server Portal | Crayon Cloud Edition</title>
     
-    <!-- ===== PWA Meta Tags ===== -->
     <meta name="theme-color" content="#7c6fea">
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
@@ -18,8 +17,6 @@
             if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
                 document.documentElement.classList.add('dark');
             }
-
-            // บอกว่า theme ถูกตั้งแล้ว
             document.documentElement.classList.add('theme-ready');
         })();
     </script>
@@ -45,29 +42,17 @@
     <style>
         * { box-sizing: border-box; }
         
-        /* ===== BACKGROUND IMG FIX & FADE TRANSITION ===== */
         .bg-img {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             object-fit: cover;
             z-index: -10;
             opacity: 0;
         }
 
-        /* เมื่อระบบพร้อม ให้ fade in เข้ามา */
-        .theme-ready .bg-light {
-            opacity: 1;
-            transition: opacity 1s ease-in-out;
-        }
-        .theme-ready .bg-dark {
-            opacity: 0;
-            transition: opacity 1s ease-in-out;
-        }
-
-        /* สลับ Opacity เมื่อเป็น Dark Mode */
+        .theme-ready .bg-light { opacity: 1; transition: opacity 1s ease-in-out; }
+        .theme-ready .bg-dark { opacity: 0; transition: opacity 1s ease-in-out; }
         html.dark.theme-ready .bg-light { opacity: 0; }
         html.dark.theme-ready .bg-dark { opacity: 1; }
 
@@ -75,22 +60,22 @@
             margin: 0; padding: 0;
             width: 100%; height: 100%;
             overflow: hidden;
+            /* ป้องกันการคลุมดำและกดค้าง */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
         }
         
         body {
             -webkit-font-smoothing: antialiased;
             background-color: #f0f4ff;
-            background-position: center center;
-            background-attachment: fixed;
-            background-repeat: no-repeat;
             transition: background-color 1s ease-in-out;
         }
         
-        body.dark-active { 
-            background-color: #0d0f1e; 
-        }
+        body.dark-active { background-color: #0d0f1e; }
 
-        /* ====== STARS (dark only) ====== */
         .stars {
             background-image: 
                 radial-gradient(1.5px 1.5px at 8% 12%, #fff, transparent),
@@ -110,7 +95,6 @@
         }
         @keyframes twinkle { 0% { opacity: 0.6; } 100% { opacity: 1; } }
 
-        /* ====== FLOAT ANIMATIONS ====== */
         @keyframes float      { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-15px);} }
         @keyframes float-slow { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-10px);} }
         @keyframes float-fast { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-20px);} }
@@ -118,11 +102,9 @@
         .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
         .animate-float-fast { animation: float-fast 5s ease-in-out infinite; }
 
-        /* ====== TOOLTIP BUBBLE ====== */
         .tooltip-text { color: #7c6fea; }
         .dark .tooltip-text { color: #c4b8f8; }
 
-        /* ====== CLOUD mix-blend ====== */
         .cloud-blend {
             mix-blend-mode: multiply;
             filter: drop-shadow(0 10px 30px rgba(140, 120, 220, 0.25));
@@ -132,11 +114,9 @@
             filter: drop-shadow(0 10px 30px rgba(140, 120, 220, 0.4));
         }
 
-        /* ====== BOTTOM WATERMARK ====== */
         .watermark { color: #a09ad0; }
         .dark .watermark { color: #5a5480; }
 
-        /* ====== OSU-STYLE: cloud pulse before click ====== */
         .cloud-pulse { animation: osu-pulse 2s ease-in-out infinite; }
         @keyframes osu-pulse {
             0%,100% { filter: drop-shadow(0 0 18px rgba(124,111,234,0.35)); }
@@ -144,7 +124,6 @@
         }
         .cloud-pulse.entered { animation: none; filter: none; }
 
-        /* Ripple burst on click */
         .osu-ripple {
             position: fixed;
             border-radius: 50%;
@@ -154,61 +133,35 @@
             background: radial-gradient(circle, rgba(180,160,255,0.45) 0%, transparent 70%);
             animation: osu-burst 0.7s ease-out forwards;
         }
-        @keyframes osu-burst {
-            to { transform: translate(-50%, -50%) scale(6); opacity: 0; }
-        }
+        @keyframes osu-burst { to { transform: translate(-50%, -50%) scale(6); opacity: 0; } }
 
-        /* ====== CSS VARIABLES FOR THEME ====== */
-        :root {
-            --slider-bg: #d8d0f8;
-            --slider-fill: #7c6fea;
-        }
-        .dark {
-            --slider-bg: #4a3e9a;
-            --slider-fill: #c4b8f8;
-        }
+        :root { --slider-bg: #d8d0f8; --slider-fill: #7c6fea; }
+        .dark { --slider-bg: #4a3e9a; --slider-fill: #c4b8f8; }
 
         #volume-slider {
-            -webkit-appearance: none;
-            appearance: none;
-            height: 6px;
-            border-radius: 3px;
+            -webkit-appearance: none; appearance: none;
+            height: 6px; border-radius: 3px;
             background: linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) 40%, var(--slider-bg) 40%);
-            outline: none;
-            cursor: pointer;
+            outline: none; cursor: pointer;
         }
         #volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 14px; height: 14px;
-            border-radius: 50%;
-            background: var(--slider-fill);
-            cursor: pointer;
+            -webkit-appearance: none; width: 14px; height: 14px;
+            border-radius: 50%; background: var(--slider-fill);
             box-shadow: 0 0 5px rgba(124,111,234,0.6);
         }
-        #volume-slider::-moz-range-thumb {
-            width: 14px; height: 14px;
-            border-radius: 50%;
-            background: var(--slider-fill);
-            cursor: pointer;
-            border: none;
-        }
-        @keyframes marquee {
-            0%   { transform: translateX(0%); }
-            100% { transform: translateX(-50%); }
-        }
+        @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
     </style>
 </head>
 
 <body class="bg-scene-light dark:bg-scene-dark min-h-screen font-sans relative">
     
-    <img src="Wallpaper-Light.webp" class="bg-img bg-light">
-    <img src="Wallpaper-Dark.webp"  class="bg-img bg-dark">
+    <img src="Wallpaper-Light.webp" class="bg-img bg-light" draggable="false">
+    <img src="Wallpaper-Dark.webp"  class="bg-img bg-dark" draggable="false">
 
     <div class="absolute inset-0 pointer-events-none transition-opacity duration-1000 opacity-0 dark:opacity-100 stars"></div>
 
     <div class="w-full h-screen relative flex items-center justify-center">
 
-        <!-- ===== CENTER: Main Cloud Canvas ===== -->
         <div id="main-cloud-outer" class="absolute inset-0 pointer-events-none z-10">
             <div class="absolute w-[min(92vw,875px)] landscape:w-[min(54vw,875px)]" style="left:50%; top:50%; transform:translate(-50%,-50%);">
                 <div class="animate-float w-full">
@@ -217,9 +170,9 @@
                      onclick="enterPortal()"
                      style="transform:scale(1.22); transform-origin:center center; transition:transform 0.7s cubic-bezier(0.34,1.56,0.64,1);">
                     <div class="relative w-full flex items-center justify-center group-hover:scale-105 transition-transform duration-700 ease-out">
-                        <img src="MainCloud.png" alt="Portal Cloud" class="w-full h-auto cloud-blend cloud-pulse">
+                        <img src="MainCloud.png" alt="Portal Cloud" class="w-full h-auto cloud-blend cloud-pulse" draggable="false">
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <img src="MainBanner.png" alt="NecoMaid Text" class="w-[78%] h-auto">
+                            <img src="MainBanner.png" alt="NecoMaid Text" class="w-[78%] h-auto" draggable="false">
                         </div>
                         <div id="click-hint" class="absolute inset-0 flex items-end justify-center pointer-events-none pb-[12%]">
                             <span class="text-[11px] md:text-sm font-black text-[#7c6fea] dark:text-[#c4b8f8]
@@ -229,7 +182,7 @@
                         </div>
                         <div id="splash-wrap" class="absolute pointer-events-none"
                              style="top:-20%; right:-5%; width:114%;">
-                            <img src="MainSplash.png" alt="ようこそ!" class="w-full h-auto drop-shadow-md">
+                            <img src="MainSplash.png" alt="ようこそ!" class="w-full h-auto drop-shadow-md" draggable="false">
                         </div>
                     </div>
                 </div>
@@ -237,7 +190,6 @@
             </div>
         </div>
 
-        <!-- ===== MENUS ===== -->
         <div id="menu-layer" style="opacity:0;pointer-events:none;transition:opacity 0.8s ease;">
 
         <a href="/yen"
@@ -248,13 +200,13 @@
             <div class="absolute -bottom-[5.5rem] left-1/2 -translate-x-1/2 w-[160px] h-[70px]
                         opacity-0 group-hover:opacity-100 group-hover:translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center justify-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false">
                 <span class="relative z-10 text-[10px] font-black tooltip-text text-center leading-tight mt-3">
                     แอปคำนวณ<br>เรทเงินเยน
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 flex items-center justify-center">
-                <img src="Cloud1.png" alt="Yen Cloud" class="w-full h-auto cloud-blend">
+                <img src="Cloud1.png" alt="Yen Cloud" class="w-full h-auto cloud-blend" draggable="false">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span class="text-3xl md:text-4xl drop-shadow-md">💴</span>
                     <span class="text-xs md:text-sm font-black text-[#7c6fea] dark:text-[#c4b8f8] mt-1 tracking-wide">Yen Calc</span>
@@ -271,13 +223,13 @@
             <div class="absolute -bottom-[5.5rem] left-1/2 -translate-x-1/2 w-[160px] h-[70px]
                         opacity-0 group-hover:opacity-100 group-hover:translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center justify-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false">
                 <span class="relative z-10 text-[10px] font-black tooltip-text text-center leading-tight mt-3">
                     ฐานข้อมูล<br>โปเกมอน
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex items-center justify-center">
-                <img src="Cloud2.png" alt="Pokemon Cloud" class="w-full h-auto cloud-blend">
+                <img src="Cloud2.png" alt="Pokemon Cloud" class="w-full h-auto cloud-blend" draggable="false">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span class="text-3xl md:text-4xl drop-shadow-md">🔴</span>
                     <span class="text-xs md:text-sm font-black text-[#7c6fea] dark:text-[#c4b8f8] mt-1 tracking-wide">Pokédex</span>
@@ -293,13 +245,13 @@
             <div class="absolute -top-[4rem] left-1/2 -translate-x-1/2 w-[150px]
                         opacity-0 group-hover:opacity-100 group-hover:-translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute w-full h-auto cloud-blend drop-shadow-md">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute w-full h-auto cloud-blend drop-shadow-md" draggable="false">
                 <span class="relative z-10 text-[9px] font-black tooltip-text text-center leading-tight py-2">
                     ยังไม่เปิด<br>ให้บริการนะ!
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                <img src="ComingSoon-Cloud.png" alt="Soon Cloud" class="w-full h-auto cloud-blend opacity-60">
+                <img src="ComingSoon-Cloud.png" alt="Soon Cloud" class="w-full h-auto cloud-blend opacity-60" draggable="false">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none grayscale group-hover:grayscale-0 transition-all">
                     <span class="text-2xl md:text-3xl">🐾</span>
                     <span class="text-[10px] md:text-xs font-black text-slate-400 dark:text-[#7066b0] mt-1 tracking-widest uppercase">Coming Soon</span>
@@ -316,33 +268,24 @@
             <div class="absolute -bottom-[5rem] left-1/2 -translate-x-1/2 w-[140px] h-[60px]
                         opacity-0 group-hover:opacity-100 group-hover:translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center justify-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false">
                 <span class="relative z-10 text-[9px] font-black tooltip-text text-center leading-tight mt-2">
                     สลับโหมด<br>มืด/สว่าง
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                <img src="Darkmode-cloud.png" alt="Theme Cloud" class="w-full h-auto cloud-blend opacity-90">
+                <img src="Darkmode-cloud.png" alt="Theme Cloud" class="w-full h-auto cloud-blend opacity-90" draggable="false">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span id="theme-icon" class="text-2xl drop-shadow-sm transition-transform">☀️</span>
                 </div>
             </div>
         </button>
 
-        </div><!-- end #menu-layer -->
-
-    </div><!-- end .h-screen -->
-
-    <!-- ===== NECOMAID (Visual Novel Style) ===== -->
-    <div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none">
+        </div></div><div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none">
         <div class="relative flex items-end justify-end">
-            
-            <!-- ตัวรับ Click ของ Maid (ซ่อนรูปเดิมไว้ ใช้กล่องรับแทน) -->
             <div class="pointer-events-auto relative cursor-pointer group" onclick="speak()">
                 <div class="w-20 h-32 md:w-28 md:h-48"></div>
             </div>
-
-            <!-- VN Dialogue Box (ปรับ Position ให้ต่ำลงมาช่วงกระโปรง) -->
             <div id="maid-speech-box"
                  class="pointer-events-auto absolute right-16 bottom-2 md:right-24 md:bottom-4
                         px-5 py-4 md:px-6 md:py-5
@@ -353,69 +296,38 @@
                         border-2 border-[#d8d0f8] dark:border-[#4a3e9a]
                         rounded-2xl rounded-br-md text-left z-10"
                  onclick="speak()">
-                
-                <!-- Name Tag -->
-                <div class="absolute -top-3.5 left-4 md:left-5 
-                            bg-[#7c6fea] dark:bg-[#4a3e9a] 
-                            text-white dark:text-[#c4b8f8] 
-                            px-3 py-0.5 md:py-1 rounded-full 
-                            text-[10px] md:text-xs font-black tracking-wider shadow-sm">
+                <div class="absolute -top-3.5 left-4 md:left-5 bg-[#7c6fea] dark:bg-[#4a3e9a] text-white px-3 py-0.5 rounded-full text-[10px] md:text-xs font-black tracking-wider shadow-sm">
                     NecoMaid
                 </div>
-
-                <!-- Dialogue Text -->
                 <span id="speech-text" class="text-[11px] md:text-sm text-[#7c6fea] dark:text-[#c4b8f8] font-bold leading-relaxed block mt-1">
                     ยินดีต้อนรับกลับมาค่ะ นายท่าน ✨
                 </span>
             </div>
-
         </div>
     </div>
 
-    <!-- ===== MUSIC PLAYER ===== -->
     <div id="music-player-wrap"
-         class="fixed bottom-10 left-5 z-40 flex flex-col items-start gap-1"
+         class="fixed bottom-12 left-5 z-40 flex flex-col items-start gap-1"
          style="opacity:0;pointer-events:none;transition:opacity 0.8s ease 0.3s;">
         <div id="music-player"
-             class="flex items-center gap-1.5 md:gap-2 px-3 py-1.5 rounded-2xl
-                    bg-white/60 dark:bg-[#1e1a3a]/60
-                    border border-[#d8d0f8] dark:border-[#4a3e9a]
-                    backdrop-blur-md shadow-lg
-                    transition-all duration-300">
-            <!-- Prev Button -->
-            <button onclick="prevSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none" title="เพลงก่อนหน้า">
-                ⏮️
-            </button>
-            
-            <button id="music-toggle" onclick="toggleMusic()"
-                    class="text-lg leading-none hover:scale-125 transition-transform duration-200 outline-none select-none"
-                    title="เปิด/ปิดเสียง">
-                🔇
-            </button>
-            
-            <!-- Next Button -->
-            <button onclick="nextSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none" title="เพลงถัดไป">
-                ⏭️
-            </button>
-
-            <input id="volume-slider" type="range" min="0" max="100" value="40"
-                   oninput="setVolume(this.value)"
-                   class="w-16 md:w-20 ml-1">
+             class="flex items-center gap-1.5 md:gap-2 px-3 py-1.5 rounded-2xl bg-white/60 dark:bg-[#1e1a3a]/60 border border-[#d8d0f8] dark:border-[#4a3e9a] backdrop-blur-md shadow-lg transition-all duration-300">
+            <button onclick="prevSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏮️</button>
+            <button id="music-toggle" onclick="toggleMusic()" class="text-lg leading-none hover:scale-125 transition-transform duration-200 outline-none select-none">🔇</button>
+            <button onclick="nextSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏭️</button>
+            <input id="volume-slider" type="range" min="0" max="100" value="40" oninput="setVolume(this.value)" class="w-16 md:w-20 ml-1">
             <div class="overflow-hidden w-20 md:w-28 ml-1">
-                <div id="now-playing-text" class="text-[9px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] whitespace-nowrap"
-                     style="display:inline-block; animation: marquee 10s linear infinite;">
+                <div id="now-playing-text" class="text-[9px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] whitespace-nowrap" style="display:inline-block; animation: marquee 10s linear infinite;">
                     🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp;
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ===== WATERMARK ===== -->
-    <div class="fixed bottom-3 left-5 watermark text-[10px] font-black uppercase tracking-widest pointer-events-none z-30">
-        NCK Server | Designed by Master
+    <div class="fixed bottom-3 left-5 watermark text-[9px] md:text-[10px] font-black uppercase tracking-widest pointer-events-none z-30 flex flex-col gap-0.5">
+        <span>NCK Server | Designed by Master</span>
+        <span class="opacity-80">© 2026 Nutchakrit Tuntivanitchphong. All rights reserved.</span>
     </div>
 
-    <!-- ระบบเสียง (นำ loop ออกจาก bg-music เพื่อให้เล่นเพลงถัดไปตอนจบเพลงได้) -->
     <audio id="bg-music" preload="auto"></audio>
     <audio id="sfx-click" src="OnClick.mp3" preload="auto"></audio>
 
@@ -450,10 +362,6 @@
         if (savedTheme) applyTheme(savedTheme);
         else applyTheme(systemPrefersDark.matches ? 'dark' : 'light');
 
-        systemPrefersDark.addEventListener('change', (e) => {
-            if (!localStorage.getItem('theme')) applyTheme(e.matches ? 'dark' : 'light');
-        });
-
         function toggleDarkMode() {
             const isDark = html.classList.contains('dark');
             const newTheme = isDark ? 'light' : 'dark';
@@ -461,11 +369,8 @@
             localStorage.setItem('theme', newTheme);
         }
 
-        /* ===== ระบบข้อความ NecoMaid (สไตล์เกมจีบสาว) ===== */
         const speechBox = document.getElementById('maid-speech-box');
         const speechText = document.getElementById('speech-text');
-        
-        // อัปเดตบทสนทนาใหม่ให้เป็นสไตล์ Maid จริงๆ
         const quotes = [
             "ยินดีต้อนรับกลับมาค่ะ นายท่าน ✨",
             "รับชาหรือกาแฟดีคะ? วันนี้ดิฉันเตรียมขนมไว้ให้ด้วยนะ ☕",
@@ -478,12 +383,10 @@
 
         function speak() {
             const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-            speechText.innerText = randomQuote; // อัปเดตเฉพาะข้อความ ไม่ทับป้ายชื่อ
-            
+            speechText.innerText = randomQuote;
             speechBox.classList.replace('opacity-0','opacity-100');
             speechBox.classList.replace('scale-95','scale-100');
             speechBox.classList.replace('translate-y-4','translate-y-0');
-            
             clearTimeout(window.maidTimer);
             window.maidTimer = setTimeout(() => {
                 speechBox.classList.replace('opacity-100','opacity-0');
@@ -492,14 +395,12 @@
             }, 6000);
         }
 
-        /* ===== ระบบจัดการ Playlist Music Player ===== */
         const playlist = [
             { title: 'hatachi-no-koi', src: 'hatachi-no-koi.mp3' },
             { title: 'Aoi-Sangosho', src: 'Aoi-Sangosho.mp3' },
             { title: 'BookEndBossa', src: 'BookEndBossa.mp3' }
         ];
         
-        // สุ่มเพลงที่จะเล่นเมื่อเปิด/รีเฟรชหน้าเว็บ
         let currentSongIndex = Math.floor(Math.random() * playlist.length);
         const audio = document.getElementById('bg-music');
         const toggleBtn = document.getElementById('music-toggle');
@@ -507,45 +408,29 @@
         let isPlaying = false;
 
         audio.volume = 0.4;
-        updateSliderBgColor(); 
 
         function loadSong(index) {
             audio.src = playlist[index].src;
-            const text = `🎵 ${playlist[index].title} &nbsp;&nbsp;&nbsp;&nbsp; 🎵 ${playlist[index].title} &nbsp;&nbsp;&nbsp;&nbsp;`;
-            nowPlayingText.innerHTML = text;
-            if (isPlaying) {
-                audio.play().catch(() => {});
-            }
+            nowPlayingText.innerHTML = `🎵 ${playlist[index].title} &nbsp;&nbsp;&nbsp;&nbsp; 🎵 ${playlist[index].title} &nbsp;&nbsp;&nbsp;&nbsp;`;
+            if (isPlaying) audio.play().catch(() => {});
         }
 
-        // โหลดเพลงที่สุ่มได้ในครั้งแรก
         loadSong(currentSongIndex);
 
         function toggleMusic() {
-            if (isPlaying) {
-                audio.pause();
-                toggleBtn.textContent = '🔇';
-                isPlaying = false;
-            } else {
-                audio.play().catch(() => {});
-                toggleBtn.textContent = '🔊';
-                isPlaying = true;
-            }
+            if (isPlaying) { audio.pause(); toggleBtn.textContent = '🔇'; isPlaying = false; }
+            else { audio.play().catch(() => {}); toggleBtn.textContent = '🔊'; isPlaying = true; }
         }
 
         function setVolume(val) {
-            const v = val / 100;
-            audio.volume = v;
+            audio.volume = val / 100;
             updateSliderBgColor();
-            if (isPlaying) {
-                toggleBtn.textContent = v === 0 ? '🔇' : v < 0.5 ? '🔉' : '🔊';
-            }
         }
 
         function nextSong() {
             currentSongIndex = (currentSongIndex + 1) % playlist.length;
             loadSong(currentSongIndex);
-            if (!isPlaying) toggleMusic(); // เล่นอัตโนมัติเมื่อกดข้าม
+            if (!isPlaying) toggleMusic();
         }
 
         function prevSong() {
@@ -554,85 +439,41 @@
             if (!isPlaying) toggleMusic();
         }
 
-        // เมื่อเพลงปัจจุบันจบ ให้เล่นเพลงถัดไปอัตโนมัติ
         audio.addEventListener('ended', nextSong);
 
-        /* ===== เข้าสู่ Portal ===== */
         function enterPortal() {
             if (window._portalEntered) return;
             window._portalEntered = true;
-
-            // เล่นเสียง Effect OnClick ทันที และลดเสียงลง 50%
             const sfxClick = document.getElementById('sfx-click');
-            if (sfxClick) {
-                sfxClick.volume = 0.5; // กำหนดระดับเสียงที่ 50%
-                sfxClick.currentTime = 0; // รีเซ็ตเสียงเผื่อกดย้ำ
-                sfxClick.play().catch(()=>{});
-            }
+            if (sfxClick) { sfxClick.volume = 0.5; sfxClick.play().catch(()=>{}); }
 
-            const outerWrap = document.getElementById('main-cloud-wrap');
-            if (outerWrap) outerWrap.style.transform = 'scale(1)';
-
-            for (let i = 0; i < 3; i++) {
-                setTimeout(() => {
-                    const ripple = document.createElement('div');
-                    ripple.className = 'osu-ripple';
-                    ripple.style.left = '50vw';
-                    ripple.style.top  = '50vh';
-                    ripple.style.width  = (250 + i * 80) + 'px';
-                    ripple.style.height = (250 + i * 80) + 'px';
-                    document.body.appendChild(ripple);
-                    setTimeout(() => ripple.remove(), 900);
-                }, i * 120);
-            }
-
-            const cloudImg = document.querySelector('.cloud-pulse');
-            if (cloudImg) cloudImg.classList.add('entered');
-
-            const hint = document.getElementById('click-hint');
-            if (hint) { hint.style.opacity = '0'; hint.style.transition = 'opacity 0.3s'; }
-
-            const wrap = document.getElementById('main-cloud-wrap');
-            if (wrap) { wrap.style.cursor = 'default'; wrap.onclick = null; }
+            document.getElementById('main-cloud-wrap').style.transform = 'scale(1)';
+            document.querySelector('.cloud-pulse').classList.add('entered');
+            document.getElementById('click-hint').style.opacity = '0';
 
             setTimeout(() => {
-                const layer = document.getElementById('menu-layer');
-                if (layer) {
-                    layer.style.pointerEvents = 'auto';
-                    layer.style.opacity = '1';
-                }
+                document.getElementById('menu-layer').style.pointerEvents = 'auto';
+                document.getElementById('menu-layer').style.opacity = '1';
             }, 200);
 
             setTimeout(() => {
-                const mpWrap = document.getElementById('music-player-wrap');
-                if (mpWrap) {
-                    mpWrap.style.opacity = '1';
-                    mpWrap.style.pointerEvents = 'auto';
-                }
+                document.getElementById('music-player-wrap').style.opacity = '1';
+                document.getElementById('music-player-wrap').style.pointerEvents = 'auto';
             }, 350);
 
             setTimeout(() => {
-                if (audio) {
-                    audio.play().then(() => {
-                        isPlaying = true;
-                        if (toggleBtn) toggleBtn.textContent = '🔊';
-                    }).catch(() => {});
-                }
+                audio.play().then(() => { isPlaying = true; toggleBtn.textContent = '🔊'; }).catch(() => {});
             }, 300);
-
             setTimeout(speak, 900);
         }
 
-        // ===== PWA Service Worker Registration =====
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.js').then(function(registration) {
-                    console.log('PWA: ServiceWorker เตรียมพร้อมทำงานแล้ว! (Scope: ' + registration.scope + ')');
-                }).catch(function(err) {
-                    console.log('PWA: ServiceWorker ทำงานล้มเหลว: ', err);
-                });
-            });
+            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
         }
+
+        // ระบบป้องกันเบื้องต้น
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('dragstart', e => { if (e.target.nodeName === 'IMG') e.preventDefault(); });
     </script>
 </body>
 </html>
