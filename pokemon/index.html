@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="th" class="transition-colors duration-500">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokédex Database | NecoMaid</title>
+    
+    <!-- Anti-Flash Script -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+
+    <!-- Fonts & Libraries -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;300;400;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Sarabun', 'sans-serif'] },
+                    colors: {
+                        mainBrand: '#829bff',
+                        darkBg: '#0f1123',
+                        darkCard: '#1a1d35',
+                        darkElem: '#232743'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-font-smoothing: antialiased; }
+        
+        @keyframes popIn { 0% { transform: scale(0.95) translateY(10px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+        .animate-pop { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
+        .animate-float { animation: float 4s ease-in-out infinite; }
+
+        .bg-grid { background-size: 40px 40px; background-image: linear-gradient(to right, rgba(130, 155, 255, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(130, 155, 255, 0.05) 1px, transparent 1px); }
+
+        .speech-bubble { position: relative; border-radius: 1.5rem; filter: drop-shadow(0 4px 10px rgba(130, 155, 255, 0.2)); transition: all 0.4s ease; }
+        .speech-bubble:after { content: ''; position: absolute; bottom: 0; right: 25%; width: 0; height: 0; border: 12px solid transparent; border-bottom: 0; border-right: 0; margin-left: -6px; margin-bottom: -12px; transition: border-top-color 0.5s; }
+        .light .speech-bubble { background: #ffffff; color: #5a6ebf; border: 1px solid #e0e7ff; }
+        .light .speech-bubble:after { border-top-color: #ffffff; }
+        .dark .speech-bubble { background: #1a1d35; color: #cbd5e1; border: 1px solid #312e81; }
+        .dark .speech-bubble:after { border-top-color: #1a1d35; }
+
+        /* Loader */
+        .loader { border: 4px solid rgba(130, 155, 255, 0.2); border-left-color: #829bff; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .type-badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-weight: bold; font-size: 0.75rem; color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+    </style>
+</head>
+<body class="bg-blue-50 dark:bg-darkBg min-h-screen text-slate-800 dark:text-blue-100 font-sans p-4 md:p-8 flex justify-center items-start bg-grid transition-colors duration-500 pb-32">
+
+    <div class="w-full max-w-4xl transition-all duration-500">
+        
+        <!-- Header -->
+        <div class="bg-mainBrand dark:bg-indigo-950 rounded-t-[2.5rem] p-6 md:p-8 text-white relative overflow-hidden transition-colors shadow-lg z-10">
+            <div class="absolute -top-10 -right-10 text-[10rem] opacity-10 font-black">🐉</div>
+            <div class="flex justify-between items-center relative z-10">
+                <div class="flex items-center gap-4">
+                    <a href="/" class="w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-2xl transition-all border border-white/20 shadow-lg text-2xl group shrink-0">
+                        <span class="group-hover:scale-125 transition-transform">🏠</span>
+                    </a>
+                    <div class="text-left">
+                        <h1 class="text-2xl sm:text-3xl font-black tracking-tight mb-0.5 drop-shadow-md">Pokédex Database</h1>
+                        <p class="text-blue-100 text-[10px] sm:text-xs font-bold opacity-90">ระบบค้นหาข้อมูลโปเกมอนโดย NecoMaid</p>
+                    </div>
+                </div>
+                <button onclick="toggleDarkMode()" class="p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/20 shadow-lg group shrink-0">
+                    <span id="theme-icon" class="text-xl">☀️</span>
+                </button>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="mt-6 relative z-10 max-w-xl">
+                <form id="search-form" class="flex gap-2">
+                    <div class="relative flex-1">
+                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-blue-200">🔍</span>
+                        <input type="text" id="poke-input" placeholder="พิมพ์ชื่อโปเกมอนภาษาอังกฤษ เช่น pikachu, urshifu-rapid-strike" required
+                               class="w-full pl-10 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-blue-200/60 focus:outline-none focus:bg-white/20 focus:ring-2 focus:ring-white/50 transition-all font-bold">
+                    </div>
+                    <button type="submit" class="bg-white text-mainBrand hover:bg-blue-50 px-6 py-3 rounded-xl font-black shadow-lg transition-all active:scale-95">
+                        ค้นหา
+                    </button>
+                </form>
+                <div id="loading-indicator" class="hidden items-center gap-2 mt-3 text-sm font-bold text-white/90">
+                    <div class="loader"></div> กำลังดึงข้อมูลจาก PokéAPI...
+                </div>
+                <div id="error-msg" class="hidden mt-2 text-sm font-bold text-red-200 bg-red-900/40 border border-red-400/30 px-3 py-1.5 rounded-lg inline-block"></div>
+            </div>
+        </div>
+
+        <!-- Result Area -->
+        <div id="result-area" class="hidden bg-white dark:bg-darkCard rounded-b-[2.5rem] shadow-2xl p-6 md:p-8 transition-colors border border-t-0 border-blue-100 dark:border-blue-900/30">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left Col: Identity & Image -->
+                <div class="lg:col-span-1 flex flex-col items-center text-center">
+                    <div class="relative w-full max-w-[250px] aspect-square bg-slate-50 dark:bg-darkElem rounded-3xl border-2 border-dashed border-blue-200 dark:border-blue-900/50 flex items-center justify-center p-4 shadow-inner mb-4">
+                        <img id="poke-img" src="" alt="Pokemon" class="w-full h-full object-contain animate-pop drop-shadow-xl z-10 relative">
+                        <div class="absolute inset-0 flex items-center justify-center opacity-[0.03] dark:opacity-[0.05] pointer-events-none overflow-hidden">
+                            <img id="poke-bg-img" src="" class="w-[150%] h-[150%] object-contain blur-sm">
+                        </div>
+                    </div>
+                    <div class="text-sm font-black text-slate-400 dark:text-blue-300/50 tracking-widest mb-1">#<span id="poke-id">000</span></div>
+                    <h2 id="poke-name" class="text-3xl font-black text-mainBrand dark:text-white capitalize mb-3 drop-shadow-sm">Name</h2>
+                    <div id="poke-types" class="flex flex-wrap gap-2 justify-center mb-6">
+                        <!-- Types will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Right Col: Stats & Details -->
+                <div class="lg:col-span-2 flex flex-col gap-6">
+                    
+                    <!-- Stats Chart -->
+                    <div class="bg-slate-50 dark:bg-darkElem p-5 rounded-3xl border border-blue-100 dark:border-blue-900/30 shadow-sm relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-24 h-24 bg-mainBrand opacity-5 rounded-bl-full pointer-events-none"></div>
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="font-black text-slate-700 dark:text-blue-200 flex items-center gap-2"><span class="text-xl">📊</span> Base Stats</h3>
+                            <div class="text-xs font-black bg-blue-100 dark:bg-indigo-900/50 text-mainBrand dark:text-blue-300 px-3 py-1 rounded-full">
+                                Total: <span id="stat-total" class="text-base">0</span>
+                            </div>
+                        </div>
+                        <div class="h-[200px] w-full">
+                            <canvas id="statsChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Details Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+                
+                <!-- Abilities -->
+                <div class="bg-slate-50 dark:bg-darkElem p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 shadow-sm animate-pop" style="animation-delay: 0.1s;">
+                    <h3 class="font-black text-slate-700 dark:text-blue-200 flex items-center gap-2 mb-4 border-b border-blue-100 dark:border-blue-900/50 pb-2"><span class="text-xl">✨</span> ความสามารถ (Abilities)</h3>
+                    <div id="poke-abilities" class="space-y-3 text-sm text-slate-600 dark:text-blue-100/80">
+                        <!-- Injected -->
+                    </div>
+                </div>
+
+                <!-- Weaknesses -->
+                <div class="bg-red-50 dark:bg-red-950/20 p-6 rounded-3xl border border-red-100 dark:border-red-900/30 shadow-sm animate-pop" style="animation-delay: 0.2s;">
+                    <h3 class="font-black text-red-700 dark:text-red-300 flex items-center gap-2 mb-4 border-b border-red-200 dark:border-red-900/50 pb-2"><span class="text-xl">💔</span> แพ้ธาตุ (Weaknesses)</h3>
+                    <div id="poke-weaknesses" class="flex flex-wrap gap-2 text-sm text-slate-700 dark:text-red-100/80">
+                        <!-- Injected -->
+                    </div>
+                </div>
+
+                <!-- Breeding & Evo -->
+                <div class="bg-slate-50 dark:bg-darkElem p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 shadow-sm animate-pop" style="animation-delay: 0.3s;">
+                    <h3 class="font-black text-slate-700 dark:text-blue-200 flex items-center gap-2 mb-4 border-b border-blue-100 dark:border-blue-900/50 pb-2"><span class="text-xl">🥚</span> ข้อมูลสายพันธุ์</h3>
+                    <div class="space-y-4 text-sm text-slate-600 dark:text-blue-100/80">
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-white block mb-1">กลุ่มไข่ (Egg Groups):</span>
+                            <div id="poke-breeding"></div>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-white block mb-1">สายวิวัฒนาการ (Evolution Line):</span>
+                            <div id="poke-evo" class="bg-white dark:bg-darkCard p-3 rounded-xl border border-blue-100 dark:border-blue-900/50 overflow-x-auto whitespace-pre font-mono text-xs"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Availability & Forms -->
+                <div class="bg-slate-50 dark:bg-darkElem p-6 rounded-3xl border border-blue-100 dark:border-blue-900/30 shadow-sm animate-pop" style="animation-delay: 0.4s;">
+                    <h3 class="font-black text-slate-700 dark:text-blue-200 flex items-center gap-2 mb-4 border-b border-blue-100 dark:border-blue-900/50 pb-2"><span class="text-xl">🏠</span> ข้อมูลเพิ่มเติม</h3>
+                    <div class="space-y-4 text-sm text-slate-600 dark:text-blue-100/80">
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-white block mb-1">โอนเข้าเกมบน Switch (HOME):</span>
+                            <ul id="poke-games" class="list-none space-y-1"></ul>
+                        </div>
+                        <div>
+                            <span class="font-bold text-slate-800 dark:text-white block mb-1">ฟอร์มอื่นๆ (Alternative Forms):</span>
+                            <div id="poke-forms" class="flex flex-wrap gap-1"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- IV Guide Tool (Optional) -->
+            <div class="mt-8 text-center">
+                <button onclick="toggleIVGuide()" class="text-xs font-bold text-slate-400 hover:text-mainBrand dark:hover:text-blue-300 transition-colors flex items-center justify-center gap-1 mx-auto bg-transparent outline-none">
+                    <span class="text-base">🔎</span> <span>เปิดคู่มือดูค่า IV (Judge Feature)</span>
+                </button>
+            </div>
+            <div id="iv-guide" class="hidden mt-4 bg-green-50 dark:bg-emerald-950/20 rounded-2xl p-6 border-2 border-dashed border-green-200 dark:border-emerald-800/50 max-w-lg mx-auto text-sm animate-pop text-left">
+                <h4 class="font-black text-green-700 dark:text-emerald-400 mb-3 border-b border-green-200 dark:border-emerald-800/50 pb-2">ตารางเทียบคำพูด Judge (IVs)</h4>
+                <ul class="space-y-2 text-slate-700 dark:text-emerald-100/80">
+                    <li class="flex justify-between border-b border-green-100 dark:border-emerald-900/30 pb-1"><b>Best (さいこう)</b> <span class="font-black text-green-600 dark:text-emerald-400">31 (Max 🌟)</span></li>
+                    <li class="flex justify-between border-b border-green-100 dark:border-emerald-900/30 pb-1"><b>Fantastic (すばらしい)</b> <span class="font-bold">30</span></li>
+                    <li class="flex justify-between border-b border-green-100 dark:border-emerald-900/30 pb-1"><b>Very Good (すごくいい)</b> <span>26 - 29</span></li>
+                    <li class="flex justify-between border-b border-green-100 dark:border-emerald-900/30 pb-1"><b>Pretty Good (かなりいい)</b> <span>16 - 25</span></li>
+                    <li class="flex justify-between border-b border-green-100 dark:border-emerald-900/30 pb-1"><b>Decent (まあまあ)</b> <span>1 - 15</span></li>
+                    <li class="flex justify-between pt-1"><b>No Good (ダメかも)</b> <span class="font-black text-red-500">0 (Min 📉)</span></li>
+                </ul>
+                <div class="mt-3 text-[10px] text-green-600/70 dark:text-emerald-400/50 text-center font-bold">💡 ปลดล็อคฟังก์ชัน Judge โดยการชนะ Leon ใน Battle Tower (Rank 4)</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- NecoMaid Mascot -->
+    <div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 lg:bottom-12 lg:right-12 z-50 pointer-events-none">
+        <div class="flex flex-col items-end pointer-events-auto">
+            <div id="maid-speech" class="speech-bubble mb-5 px-6 py-4 text-xs font-bold transition-all duration-500 opacity-0 scale-90 translate-y-4 max-w-[200px] text-center shadow-lg">
+                เนียะ! ยินดีต้อนรับค่ะ
+            </div>
+            <div class="relative cursor-pointer group mr-2 mb-2" onclick="speak()">
+                <img src="Wave.png" alt="NecoMaid" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><text y=\'50\' font-size=\'40\'>🐈</text></svg>'" class="w-24 h-auto md:w-36 lg:w-40 animate-float drop-shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:scale-110 transition-transform duration-500">
+                <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-mainBrand text-white text-[8px] font-black px-3 py-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest border border-white/20 whitespace-nowrap">NecoMaid</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Theme Logic ---
+        const html = document.documentElement;
+        const themeIcon = document.getElementById('theme-icon');
+        let statsChartInstance = null;
+
+        function applyTheme(isDark) {
+            html.classList.toggle('dark', isDark);
+            themeIcon.innerText = isDark ? '🌙' : '☀️';
+            if (statsChartInstance) updateChartTheme(isDark);
+        }
+
+        function toggleDarkMode() {
+            const isDark = !html.classList.contains('dark');
+            applyTheme(isDark);
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        // --- 2. Data Constants Mapping ---
+        const POKEMON_ALIASES = {
+            "indeedee": "indeedee-male", "meowstic": "meowstic-male", "toxtricity": "toxtricity-amped",
+            "urshifu": "urshifu-single-strike", "lycanroc": "lycanroc-midday", "aegislash": "aegislash-shield",
+            "pumpkaboo": "pumpkaboo-average", "gourgeist": "gourgeist-average", "oricorio": "oricorio-baile",
+            "mimikyu": "mimikyu-disguised", "eiscue": "eiscue-ice", "morpeko": "morpeko-full-belly",
+            "darmanitan": "darmanitan-standard", "basculin": "basculin-red-striped", "meloetta": "meloetta-aria",
+            "tornadus": "tornadus-incarnate", "thundurus": "thundurus-incarnate", "landorus": "landorus-incarnate",
+            "enamorus": "enamorus-incarnate", "deoxys": "deoxys-normal", "wormadam": "wormadam-plant",
+            "giratina": "giratina-altered", "shaymin": "shaymin-land", "zygarde": "zygarde-50",
+            "keldeo": "keldeo-ordinary", "ogerpon": "ogerpon-teal-mask"
+        };
+
+        const TYPE_DATA = {
+            "normal": { emoji: "⚪", color: "#A8A77A", name: "Normal" },
+            "fire": { emoji: "🔥", color: "#EE8130", name: "Fire" },
+            "water": { emoji: "💧", color: "#6390F0", name: "Water" },
+            "electric": { emoji: "⚡", color: "#F7D02C", name: "Electric" },
+            "grass": { emoji: "🌿", color: "#7AC74C", name: "Grass" },
+            "ice": { emoji: "❄️", color: "#96D9D6", name: "Ice" },
+            "fighting": { emoji: "🥊", color: "#C22E28", name: "Fighting" },
+            "poison": { emoji: "☠️", color: "#A33EA1", name: "Poison" },
+            "ground": { emoji: "⛰️", color: "#E2BF65", name: "Ground" },
+            "flying": { emoji: "🦅", color: "#A98FF3", name: "Flying" },
+            "psychic": { emoji: "🔮", color: "#F95587", name: "Psychic" },
+            "bug": { emoji: "🐛", color: "#A6B91A", name: "Bug" },
+            "rock": { emoji: "🪨", color: "#B6A136", name: "Rock" },
+            "ghost": { emoji: "👻", color: "#735797", name: "Ghost" },
+            "dragon": { emoji: "🐉", color: "#6F35FC", name: "Dragon" },
+            "dark": { emoji: "🌑", color: "#705746", name: "Dark" },
+            "steel": { emoji: "⚙️", color: "#B7B7CE", name: "Steel" },
+            "fairy": { emoji: "🧚", color: "#D685AD", name: "Fairy" }
+        };
+
+        const EGG_GROUPS_MAP = {
+            "monster": "Monster", "water1": "Water 1", "bug": "Bug", "flying": "Flying", 
+            "ground": "Field", "fairy": "Fairy", "plant": "Grass", "humanshape": "Human-Like", 
+            "water3": "Water 3", "mineral": "Mineral", "indeterminate": "Amorphous", 
+            "water2": "Water 2", "ditto": "Ditto", "dragon": "Dragon", "no-eggs": "Undiscovered"
+        };
+
+        const MODERN_GAMES = {
+            "lets-go-pikachu-lets-go-eevee": "🟡🟤 Let's Go P/E",
+            "sword-shield": "⚔️🛡️ Sword & Shield",
+            "brilliant-diamond-and-shining-pearl": "💎🔮 BDSP",
+            "legends-arceus": "🏔️ Legends: Arceus",
+            "scarlet-violet": "🔴🟣 Scarlet & Violet"
+        };
+
+        // --- 3. App State & Elements ---
+        const searchForm = document.getElementById('search-form');
+        const pokeInput = document.getElementById('poke-input');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const errorMsg = document.getElementById('error-msg');
+        const resultArea = document.getElementById('result-area');
+        
+        searchForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            let name = pokeInput.value.trim().toLowerCase();
+            if (!name) return;
+
+            name = name.replace(/ /g, "-").replace(/\./g, "").replace(/'/g, "").replace(/’/g, "");
+            if (POKEMON_ALIASES[name]) name = POKEMON_ALIASES[name];
+
+            await searchPokemon(name);
+        });
+
+        // --- 4. Main Fetch Logic (Translated from Python) ---
+        async function searchPokemon(name) {
+            // UI Setup
+            errorMsg.classList.add('hidden');
+            resultArea.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            loadingIndicator.classList.add('flex');
+            
+            try {
+                // Fetch Base Data
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+                if (!res.ok) throw new Error("ไม่พบโปเกมอนชื่อนี้ ลองพิมพ์ชื่อเต็มๆ หรือใส่ขีดคั่นดูนะเจ้าคะ");
+                const data = await res.json();
+
+                // Prep parallel requests
+                const speciesPromise = data.species ? fetch(data.species.url).then(r => r.ok ? r.json() : null) : Promise.resolve(null);
+                
+                // Fetch types data for weaknesses
+                const typePromises = data.types.map(t => fetch(t.type.url).then(r => r.ok ? r.json() : null));
+                
+                // Fetch abilities data for descriptions
+                const abilityPromises = data.abilities.map(a => fetch(a.ability.url).then(r => r.ok ? r.json() : null));
+
+                const [speciesData, typesDataArray, abilitiesDataArray] = await Promise.all([
+                    speciesPromise, 
+                    Promise.all(typePromises), 
+                    Promise.all(abilityPromises)
+                ]);
+
+                // --- Data Processing ---
+                
+                // 1. Identity
+                const spriteUrl = data.sprites?.other?.['official-artwork']?.front_default || data.sprites?.front_default || '';
+                document.getElementById('poke-img').src = spriteUrl;
+                document.getElementById('poke-bg-img').src = spriteUrl;
+                document.getElementById('poke-id').innerText = String(data.id).padStart(3, '0');
+                document.getElementById('poke-name').innerText = data.name.replace(/-/g, ' ');
+
+                // 2. Types
+                const typesContainer = document.getElementById('poke-types');
+                typesContainer.innerHTML = '';
+                data.types.forEach(t => {
+                    const tName = t.type.name;
+                    const info = TYPE_DATA[tName] || { emoji: "❓", color: "#777", name: tName };
+                    const span = document.createElement('span');
+                    span.className = 'type-badge';
+                    span.style.backgroundColor = info.color;
+                    span.innerHTML = `${info.emoji} ${info.name.toUpperCase()}`;
+                    typesContainer.appendChild(span);
+                });
+
+                // 3. Stats & Chart
+                const stats = {};
+                let totalStats = 0;
+                data.stats.forEach(s => { 
+                    stats[s.stat.name] = s.base_stat; 
+                    totalStats += s.base_stat;
+                });
+                document.getElementById('stat-total').innerText = totalStats;
+                renderChart([
+                    stats['hp'] || 0, stats['attack'] || 0, stats['defense'] || 0,
+                    stats['special-attack'] || 0, stats['special-defense'] || 0, stats['speed'] || 0
+                ]);
+
+                // 4. Weaknesses
+                let multipliers = {};
+                Object.keys(TYPE_DATA).forEach(k => multipliers[k] = 1.0);
+                
+                typesDataArray.forEach(tData => {
+                    if (!tData) return;
+                    const rel = tData.damage_relations;
+                    rel.double_damage_from.forEach(w => { if(multipliers[w.name] !== undefined) multipliers[w.name] *= 2.0; });
+                    rel.half_damage_from.forEach(r => { if(multipliers[r.name] !== undefined) multipliers[r.name] *= 0.5; });
+                    rel.no_damage_from.forEach(i => { if(multipliers[i.name] !== undefined) multipliers[i.name] *= 0.0; });
+                });
+
+                const weaknessesContainer = document.getElementById('poke-weaknesses');
+                weaknessesContainer.innerHTML = '';
+                let hasWeakness = false;
+                for (const [tName, mult] of Object.entries(multipliers)) {
+                    if (mult > 1.0) {
+                        hasWeakness = true;
+                        const info = TYPE_DATA[tName];
+                        const div = document.createElement('div');
+                        div.className = `px-2 py-1 rounded-lg border border-red-200/50 bg-white/50 dark:bg-red-900/30 flex items-center gap-1 ${mult >= 4 ? 'font-black text-red-600 dark:text-red-400' : 'font-bold'}`;
+                        div.innerHTML = `${info.emoji} ${info.name} <span class="text-xs">x${mult}</span>`;
+                        weaknessesContainer.appendChild(div);
+                    }
+                }
+                if (!hasWeakness) weaknessesContainer.innerHTML = "<span class='italic'>ไม่มีจุดอ่อน! (None)</span>";
+
+                // 5. Abilities
+                const abilitiesContainer = document.getElementById('poke-abilities');
+                abilitiesContainer.innerHTML = '';
+                data.abilities.forEach((ab, idx) => {
+                    const abName = ab.ability.name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                    const isHidden = ab.is_hidden ? "<span class='text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 px-1.5 py-0.5 rounded ml-2 uppercase'>Hidden</span>" : "";
+                    let abDesc = "No description available.";
+                    
+                    const aData = abilitiesDataArray[idx];
+                    if (aData) {
+                        const effect = aData.effect_entries.find(e => e.language.name === 'en');
+                        if (effect) abDesc = effect.short_effect;
+                        else {
+                            const flavor = aData.flavor_text_entries.find(e => e.language.name === 'en');
+                            if (flavor) abDesc = flavor.flavor_text.replace(/[\n\f]/g, ' ');
+                        }
+                    }
+                    abilitiesContainer.innerHTML += `
+                        <div class="border-l-2 border-mainBrand/50 pl-3">
+                            <div class="font-bold text-slate-800 dark:text-white flex items-center">${abName} ${isHidden}</div>
+                            <div class="text-xs mt-1 opacity-80">${abDesc}</div>
+                        </div>`;
+                });
+
+                // 6. Species Data (Breeding, Forms, Evo Chain)
+                let breedingStr = "ไม่ทราบข้อมูล";
+                let evoStr = "ไม่มีข้อมูลวิวัฒนาการ";
+                let formsHtml = "";
+
+                if (speciesData) {
+                    // Forms
+                    const forms = speciesData.varieties.map(v => v.pokemon.name);
+                    forms.forEach(f => {
+                        formsHtml += `<span class="bg-blue-100 dark:bg-indigo-900/50 text-mainBrand dark:text-blue-300 text-[10px] px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">${f.replace(/-/g, ' ')}</span>`;
+                    });
+                    document.getElementById('poke-forms').innerHTML = formsHtml || '-';
+
+                    // Breeding
+                    const eggGroups = speciesData.egg_groups.map(e => EGG_GROUPS_MAP[e.name] || e.name);
+                    const isNoEggs = eggGroups.includes("Undiscovered");
+                    
+                    if (isNoEggs) {
+                        breedingStr = "🚫 ไม่สามารถผสมพันธุ์ได้ (Undiscovered)";
+                    } else {
+                        breedingStr = eggGroups.join(", ");
+                    }
+                    document.getElementById('poke-breeding').innerHTML = breedingStr;
+
+                    // Fetch Evo Chain
+                    if (speciesData.evolution_chain && speciesData.evolution_chain.url) {
+                        const evoRes = await fetch(speciesData.evolution_chain.url);
+                        if (evoRes.ok) {
+                            const evoData = await evoRes.json();
+                            const paths = getEvoPaths(evoData.chain, "");
+                            
+                            if (paths.length === 1 && !paths[0].includes("─(")) {
+                                evoStr = "ร่างเดียว (Does not evolve)";
+                            } else {
+                                evoStr = paths.join("\n");
+                            }
+                        }
+                    }
+                }
+                document.getElementById('poke-evo').innerText = evoStr;
+
+                // 7. Games Transferability
+                const availableGames = new Set();
+                data.moves.forEach(m => {
+                    m.version_group_details.forEach(d => availableGames.add(d.version_group.name));
+                });
+                
+                const gamesContainer = document.getElementById('poke-games');
+                gamesContainer.innerHTML = '';
+                let hasGames = false;
+                for (const [key, label] of Object.entries(MODERN_GAMES)) {
+                    if (availableGames.has(key)) {
+                        hasGames = true;
+                        gamesContainer.innerHTML += `<li>✅ ${label}</li>`;
+                    }
+                }
+                if (!hasGames) gamesContainer.innerHTML = "<li class='text-slate-400'>❌ ยังไม่เปิดให้โอนเข้าภาคหลักในยุค Switch</li>";
+
+                // Done loading
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+                resultArea.classList.remove('hidden');
+
+                // Trigger mascot speech
+                speakCustom(`ค้นหาข้อมูล ${data.name} เรียบร้อยแล้วเจ้าค่ะ! ✨`);
+
+            } catch (err) {
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+                errorMsg.innerText = err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ API";
+                errorMsg.classList.remove('hidden');
+                speakCustom("หาไม่เจอเลยเจ้าค่ะ ลองพิมพ์ชื่อเต็มๆ หรือตรวจตัวสะกดดูนะเจ้าคะ 😿");
+            }
+        }
+
+        // --- 5. Evolution Parsing Helpers (Translated from Python) ---
+        function parseEvoDetails(detailsArr) {
+            if (!detailsArr || detailsArr.length === 0) return " ➡️ ";
+            const d = detailsArr[0];
+            let reqs = [];
+            
+            if (d.item) reqs.push(`Use ${d.item.name.replace(/-/g, ' ')}`);
+            if (d.min_level) reqs.push(`Lv.${d.min_level}`);
+            if (d.min_happiness) reqs.push("High Friendship");
+            if (d.min_affection) reqs.push("High Affection");
+            
+            const trigger = d.trigger ? d.trigger.name : null;
+            if (trigger === 'trade') {
+                let req = "Trade";
+                if (d.held_item) req += ` w/ ${d.held_item.name.replace(/-/g, ' ')}`;
+                reqs.push(req);
+            }
+            
+            if (d.location) reqs.push(`At ${d.location.name.replace(/-/g, ' ')}`);
+            if (d.known_move) reqs.push(`Know '${d.known_move.name.replace(/-/g, ' ')}'`);
+            if (d.time_of_day) reqs.push(d.time_of_day);
+            if (d.held_item && trigger !== 'trade') reqs.push(`Hold ${d.held_item.name.replace(/-/g, ' ')}`);
+            if (d.gender === 1) reqs.push("Female");
+            else if (d.gender === 2) reqs.push("Male");
+            if (d.turn_upside_down) reqs.push("Upside Down");
+            
+            if (reqs.length === 0) {
+                if (trigger === 'level-up') reqs.push("Level Up");
+                else reqs.push("?");
+            }
+            
+            // Capitalize first letter of each word for aesthetics
+            const cleanReqs = reqs.join(', ').replace(/\b\w/g, l => l.toUpperCase());
+            return ` ─(${cleanReqs})─> `;
+        }
+
+        function getEvoPaths(node, currentStr) {
+            let paths = [];
+            let name = node.species.name.charAt(0).toUpperCase() + node.species.name.slice(1);
+            let newStr = currentStr + name;
+            
+            if (!node.evolves_to || node.evolves_to.length === 0) {
+                paths.push(newStr);
+            } else {
+                node.evolves_to.forEach(child => {
+                    let evoReq = parseEvoDetails(child.evolution_details);
+                    paths = paths.concat(getEvoPaths(child, newStr + evoReq));
+                });
+            }
+            return paths;
+        }
+
+        // --- 6. Chart.js Render ---
+        function renderChart(dataValues) {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            const isDark = html.classList.contains('dark');
+            
+            if (statsChartInstance) {
+                statsChartInstance.destroy();
+            }
+
+            const textColor = isDark ? '#cbd5e1' : '#475569';
+            const gridColor = isDark ? 'rgba(130, 155, 255, 0.1)' : 'rgba(130, 155, 255, 0.2)';
+
+            statsChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['HP', 'Atk', 'Def', 'Sp.A', 'Sp.D', 'Spe'],
+                    datasets: [{
+                        label: 'Base Stats',
+                        data: dataValues,
+                        backgroundColor: [
+                            '#FF5959', '#F5AC78', '#FAE078', '#9DB7F5', '#A7DB8D', '#FA92B2'
+                        ],
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: isDark ? '#1a1d35' : '#ffffff',
+                            titleColor: isDark ? '#829bff' : '#5a6ebf',
+                            bodyColor: isDark ? '#cbd5e1' : '#475569',
+                            borderColor: isDark ? '#312e81' : '#e0e7ff',
+                            borderWidth: 1,
+                            displayColors: false,
+                            callbacks: { title: () => null }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 255,
+                            grid: { color: gridColor, drawBorder: false },
+                            ticks: { color: textColor, font: { family: 'Sarabun', size: 10 }, stepSize: 50 }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: textColor, font: { family: 'Sarabun', weight: 'bold', size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartTheme(isDark) {
+            if(!statsChartInstance) return;
+            const textColor = isDark ? '#cbd5e1' : '#475569';
+            const gridColor = isDark ? 'rgba(130, 155, 255, 0.1)' : 'rgba(130, 155, 255, 0.2)';
+            
+            statsChartInstance.options.scales.y.grid.color = gridColor;
+            statsChartInstance.options.scales.y.ticks.color = textColor;
+            statsChartInstance.options.scales.x.ticks.color = textColor;
+            statsChartInstance.options.plugins.tooltip.backgroundColor = isDark ? '#1a1d35' : '#ffffff';
+            statsChartInstance.options.plugins.tooltip.titleColor = isDark ? '#829bff' : '#5a6ebf';
+            statsChartInstance.options.plugins.tooltip.bodyColor = isDark ? '#cbd5e1' : '#475569';
+            statsChartInstance.options.plugins.tooltip.borderColor = isDark ? '#312e81' : '#e0e7ff';
+            statsChartInstance.update();
+        }
+
+        // --- 7. IV Guide Toggle ---
+        function toggleIVGuide() {
+            const guide = document.getElementById('iv-guide');
+            guide.classList.toggle('hidden');
+            if(!guide.classList.contains('hidden')) {
+                speakCustom("เปิดคู่มือ Judge ให้แล้วเจ้าค่ะ เอาไว้เช็คความเก่งตอนฟักไข่นะคะ 🥚");
+            }
+        }
+
+        // --- 8. Mascot Speech ---
+        const speechElement = document.getElementById('maid-speech');
+        const defaultQuotes = [
+            "ยินดีต้อนรับสู่ฐานข้อมูลโปเกมอนเจ้าค่ะ! 🐾",
+            "อยากรู้ข้อมูลตัวไหน พิมพ์ชื่อภาษาอังกฤษได้เลยนะเจ้าคะ",
+            "รองรับโปเกมอนร่างพิเศษด้วยนะ ลองพิมพ์ urshifu-rapid-strike ดูสิคะ",
+            "หนูคำนวณจุดอ่อน และสายวิวัฒนาการมาให้แบบเจาะลึกเลยเจ้าค่ะ ✨"
+        ];
+
+        function speakCustom(text) {
+            speechElement.innerText = text;
+            speechElement.classList.replace('opacity-0', 'opacity-100');
+            speechElement.classList.replace('scale-90', 'scale-100');
+            speechElement.classList.replace('translate-y-4', 'translate-y-0');
+            clearTimeout(window.maidTimer);
+            window.maidTimer = setTimeout(() => {
+                speechElement.classList.replace('opacity-100', 'opacity-0');
+                speechElement.classList.replace('scale-100', 'scale-90');
+                speechElement.classList.replace('translate-y-0', 'translate-y-4');
+            }, 6000);
+        }
+
+        function speakRandom() {
+            const quote = defaultQuotes[Math.floor(Math.random() * defaultQuotes.length)];
+            speakCustom(quote);
+        }
+
+        window.onload = () => {
+            applyTheme(html.classList.contains('dark'));
+            setTimeout(speakRandom, 1500);
+        };
+    </script>
+</body>
+</html>
