@@ -5,7 +5,6 @@
 
 const CACHE_NAME = 'necomaid-calc-v1.2';
 
-// 📝 รายชื่อไฟล์ที่ต้องเก็บไว้ใช้ตอนออฟไลน์
 const urlsToCache = [
   './',
   './index.html',
@@ -13,61 +12,70 @@ const urlsToCache = [
   './unticked.png',
   './ticked.png',
   './icon-192.png',
-  // รายชื่อไฟล์เพลงจาก music-timestamps.json
   './hatachi-no-koi.mp3',
   './Aoi-Sangosho.mp3',
   './BookEndBossa.mp3',
   './suki-no-oto.mp3',
   './anata-no-koibito.mp3',
   './OnClick.mp3',
-  './Normal-Mouse-Click.mp3',
-  // ไฟล์ภายนอกที่จำเป็นสำหรับการแสดงผล
-  'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Sarabun:wght@100;300;400;700;800&display=swap'
+  './Normal-Mouse-Click.mp3'
 ];
+// หมายเหตุ: ตัด CDN URL ออกแล้ว เพราะ cache cross-origin ไม่ reliable
 
-// 🔑 Key สำหรับเก็บเรทเงินสำรองใน Cache Storage
 const RATE_CACHE_KEY = 'necomaid-cached-rate';
 
-// ขั้นตอนติดตั้ง: เก็บไฟล์ลงสมอง (Cache)
+// ส่ง progress กลับไปหาหน้าเว็บ
+function broadcastProgress(loaded, total, done) {
+  self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
+    clients.forEach(client => {
+      client.postMessage({ type: 'SW_CACHE_PROGRESS', loaded, total, done: !!done });
+    });
+  });
+}
+
+// ติดตั้ง: เก็บไฟล์ทีละตัวพร้อมส่ง progress
 self.addEventListener('install', event => {
   self.skipWaiting();
+  const total = urlsToCache.length;
+  let loaded = 0;
+
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      console.log('SW: กำลังเตรียมระบบ Offline สำหรับ Version 1.1.2...');
-      return Promise.allSettled(
-        urlsToCache.map(url =>
-          fetch(url).then(response => {
-            if (!response.ok) throw new Error(`Load failed: ${url}`);
-            
-            // ✅ แก้ไขบั๊ก Safari: ถ้ามีการ Redirect ให้ Fetch ใหม่เอาค่าที่สะอาดมาเก็บ
-            if (response.redirected) {
-              return fetch(response.url).then(cleanRes => cache.put(url, cleanRes));
-            }
-            return cache.put(url, response);
-          }).catch(err => console.warn(`SW: ข้ามการ Cache -> ${url}`))
-        )
-      );
+      return urlsToCache.reduce((chain, url) => {
+        return chain.then(() =>
+          fetch(url)
+            .then(response => {
+              if (!response.ok) throw new Error('Failed: ' + url);
+              if (response.redirected) {
+                return fetch(response.url).then(clean => cache.put(url, clean));
+              }
+              return cache.put(url, response);
+            })
+            .catch(err => console.warn('SW: ข้ามการ Cache ->', url))
+            .finally(() => {
+              loaded++;
+              broadcastProgress(loaded, total, loaded === total);
+            })
+        );
+      }, Promise.resolve());
     })
   );
 });
 
-// ขั้นตอนเปิดใช้งาน: เคลียร์ความจำเก่า (ลบ Cache v4/v5 ทิ้ง)
+// เปิดใช้งาน: ลบ cache เก่า
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-    ))
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
   );
 });
 
-// การดึงข้อมูล: เน้นความเร็ว (Cache First) และรองรับออฟไลน์
+// Fetch: จัดการ API เรทเงินพิเศษ + Cache First ทั่วไป
 self.addEventListener('fetch', event => {
-  // พิเศษ: จัดการคำขอเรทเงินจาก API
   if (event.request.url.includes('open.er-api.com')) {
     event.respondWith(
       fetch(event.request).then(networkResponse => {
-        // เมื่อออนไลน์: บันทึกเรทใหม่ล่าสุดเก็บไว้เสมอ
         const clone = networkResponse.clone();
         clone.json().then(data => {
           if (data?.rates?.THB) {
@@ -79,37 +87,20 @@ self.addEventListener('fetch', event => {
           }
         }).catch(() => {});
         return networkResponse;
-      }).catch(() => {
-        // เมื่อออฟไลน์: ดึงเรทเก่าจาก Cache มาใช้แทน
-        return caches.match(RATE_CACHE_KEY);
-      })
+      }).catch(() => caches.match(RATE_CACHE_KEY))
     );
     return;
   }
 
-  // สำหรับไฟล์ทั่วไป (HTML, CSS, MP3, Images)
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      // 1. ถ้ามีใน Cache ให้ดึงมาใช้เลย (เร็วที่สุด)
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      // 2. ถ้าไม่มีใน Cache ให้โหลดจากเน็ต
-      return fetch(event.request).then(networkResponse => {
-        // ตรวจสอบความถูกต้องและจัดการเรื่อง Redirect อีกครั้ง
-        if (!networkResponse || networkResponse.status !== 200) return networkResponse;
-        
-        if (networkResponse.redirected) {
-          return fetch(networkResponse.url);
-        }
-        
-        return networkResponse;
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(res => {
+        if (!res || res.status !== 200) return res;
+        if (res.redirected) return fetch(res.url);
+        return res;
       }).catch(() => {
-        // กรณีออฟไลน์สุดๆ และหาไฟล์ไม่เจอ
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+        if (event.request.mode === 'navigate') return caches.match('./index.html');
         return new Response('Offline Mode', { status: 503 });
       });
     })
