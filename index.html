@@ -192,7 +192,7 @@
 
         <div id="menu-layer" style="opacity:0;pointer-events:none;transition:opacity 0.8s ease;">
 
-        <a href="/yen"
+        <a href="/yen" onclick="playNormalClick()"
            class="group absolute w-[min(40vw,300px)] landscape:w-[min(22vw,300px)]
                   top-[8%] left-[4%] sm:left-[8%] md:left-[10%]
                   flex items-center justify-center
@@ -214,7 +214,7 @@
             </div>
         </a>
 
-        <a href="/pokemon"
+        <a href="/pokemon" onclick="playNormalClick()"
            class="group absolute w-[min(36vw,275px)] landscape:w-[min(20vw,275px)]
                   top-[10%] right-[4%] sm:right-[8%] md:right-[10%]
                   flex items-center justify-center
@@ -378,11 +378,22 @@
 
     <audio id="bg-music" preload="auto"></audio>
     <audio id="sfx-click" src="OnClick.mp3" preload="auto"></audio>
+    <audio id="sfx-normal-click" src="Normal-Mouse-Click.mp3" preload="auto"></audio>
 
     <script>
         const html = document.documentElement;
         const body = document.body;
         const themeIcon = document.getElementById('theme-icon');
+
+        // ฟังก์ชันเสริม: เล่นเสียงคลิกเมาส์ปกติ (สำหรับปุ่มอื่นๆ ทั่วไป)
+        function playNormalClick() {
+            const sfx = document.getElementById('sfx-normal-click');
+            if (sfx) {
+                sfx.volume = 0.5; // ลดระดับเสียงลง 50% ให้พอดีกับเสียงของ Portal หลัก
+                sfx.currentTime = 0;
+                sfx.play().catch(()=>{});
+            }
+        }
 
         function updateSliderBgColor() {
             const volSlider = document.getElementById('volume-slider');
@@ -411,6 +422,7 @@
         else applyTheme(systemPrefersDark.matches ? 'dark' : 'light');
 
         function toggleDarkMode() {
+            playNormalClick();
             const isDark = html.classList.contains('dark');
             const newTheme = isDark ? 'light' : 'dark';
             applyTheme(newTheme);
@@ -430,6 +442,7 @@
         ];
 
         function speak() {
+            playNormalClick();
             const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
             speechText.innerText = randomQuote;
             speechBox.classList.replace('opacity-0','opacity-100');
@@ -466,6 +479,7 @@
         loadSong(currentSongIndex);
 
         function toggleMusic() {
+            playNormalClick();
             if (isPlaying) { audio.pause(); toggleBtn.textContent = '🔇'; isPlaying = false; }
             else { audio.play().catch(() => {}); toggleBtn.textContent = '🔊'; isPlaying = true; }
         }
@@ -476,12 +490,14 @@
         }
 
         function nextSong() {
+            playNormalClick();
             currentSongIndex = (currentSongIndex + 1) % playlist.length;
             loadSong(currentSongIndex);
             if (!isPlaying) toggleMusic();
         }
 
         function prevSong() {
+            playNormalClick();
             currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
             loadSong(currentSongIndex);
             if (!isPlaying) toggleMusic();
@@ -533,13 +549,8 @@
             const modal = document.getElementById('credit-modal');
             const content = document.getElementById('credit-content');
             
-            // เล่นเสียงเอฟเฟกต์เบาๆ เวลากดเรียก Pop-up
-            const sfxClick = document.getElementById('sfx-click');
-            if (sfxClick) {
-                sfxClick.volume = 0.5;
-                sfxClick.currentTime = 0;
-                sfxClick.play().catch(()=>{});
-            }
+            // เรียกใช้เสียงคลิกแบบปกติ
+            playNormalClick();
 
             modal.classList.remove('opacity-0', 'pointer-events-none');
             content.classList.remove('scale-95');
@@ -549,6 +560,9 @@
         function closeCredit(e) {
             // เช็คให้แน่ใจว่าคลิกที่ฉากหลังสีดำ หรือคลิกที่ปุ่มกากบาทเท่านั้น
             if (e && e.target.id !== 'credit-modal' && e.target.id !== 'close-modal-btn') return;
+            
+            // เรียกใช้เสียงคลิกแบบปกติ
+            playNormalClick();
             
             const modal = document.getElementById('credit-modal');
             const content = document.getElementById('credit-content');
