@@ -1,6 +1,5 @@
-const CACHE_NAME = 'nck-portal-v1.2';
+const CACHE_NAME = 'nck-portal-v1.2.1';
 
-// 📝 รายชื่อไฟล์ที่ต้องเก็บไว้ใช้ตอนออฟไลน์ (เน้นไฟล์ที่จำเป็นจริงๆ)
 const urlsToCache = [
   './',
   './index.html',
@@ -24,76 +23,63 @@ const urlsToCache = [
   './Wallpaper-Dark.webp'
 ];
 
-// ขั้นตอนติดตั้ง: เก็บไฟล์ลง Cache
+function broadcastProgress(loaded, total, done) {
+  self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
+    clients.forEach(client => {
+      client.postMessage({ type: 'SW_CACHE_PROGRESS', loaded, total, done: !!done });
+    });
+  });
+}
+
 self.addEventListener('install', event => {
   self.skipWaiting();
+  const total = urlsToCache.length;
+  let loaded = 0;
+
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return Promise.allSettled(
-        urlsToCache.map(url =>
-          fetch(url).then(response => {
-            if (!response.ok) throw new Error(`Network response was not ok for ${url}`);
-            // ถ้ามีการ Redirect ให้สร้าง Response ใหม่ที่สะอาด (Clean) เพื่อบันทึก
-            if (response.redirected) {
-              return fetch(response.url).then(cleanResponse => cache.put(url, cleanResponse));
-            }
-            return cache.put(url, response);
-          }).catch(err => console.warn(`SW: Load failed -> ${url}`, err))
-        )
-      );
+      return urlsToCache.reduce((chain, url) => {
+        return chain.then(() =>
+          fetch(url)
+            .then(response => {
+              if (!response.ok) throw new Error('Failed: ' + url);
+              if (response.redirected) {
+                return fetch(response.url).then(clean => cache.put(url, clean));
+              }
+              return cache.put(url, response);
+            })
+            .catch(err => console.warn('SW: Load failed ->', url, err))
+            .finally(() => {
+              loaded++;
+              broadcastProgress(loaded, total, loaded === total);
+            })
+        );
+      }, Promise.resolve());
     })
   );
 });
 
-// ขั้นตอนเปิดใช้งาน: ลบแคชเก่า
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
+    caches.keys().then(names =>
+      Promise.all(names.map(n => n !== CACHE_NAME && caches.delete(n)))
+    ).then(() => self.clients.claim())
   );
 });
 
-// การดึงข้อมูล: เน้นดึงจาก Cache ก่อนเพื่อความเร็วและ Offline
 self.addEventListener('fetch', event => {
-  // ข้ามการตรวจจับถ้าไม่ใช่คำขอประเภท GET (เช่น การส่งข้อมูล)
   if (event.request.method !== 'GET') return;
-
   event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      // 1. ถ้าเจอใน Cache ให้ส่งคืนทันที
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      // 2. ถ้าไม่เจอ ให้ไปดึงจากเน็ต
-      return fetch(event.request).then(networkResponse => {
-        // ตรวจสอบว่าผลลัพธ์ใช้ได้ไหม
-        if (!networkResponse || networkResponse.status !== 200) {
-          return networkResponse;
-        }
-
-        // แก้ปัญหา Redirect Error ใน Safari: 
-        // ถ้าผลลัพธ์มีการ Redirect เราต้องสร้าง Response ใหม่ที่ไม่มีสถานะ Redirect ก่อนส่งคืน
-        if (networkResponse.redirected) {
-          return fetch(networkResponse.url);
-        }
-
-        return networkResponse;
+    caches.match(event.request).then(cached => {
+      if (cached) return cached;
+      return fetch(event.request).then(res => {
+        if (!res || res.status !== 200) return res;
+        if (res.redirected) return fetch(res.url);
+        return res;
       }).catch(() => {
-        // กรณีออฟไลน์และไม่มีในแคช
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
+        if (event.request.mode === 'navigate') return caches.match('./index.html');
         return new Response('Offline Mode - ข้อมูลนี้ยังไม่ได้ถูกบันทึกไว้เจ้าค่ะ', {
-          status: 503,
-          headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+          status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
         });
       });
     })

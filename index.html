@@ -154,7 +154,43 @@
 </head>
 
 <body class="bg-scene-light dark:bg-scene-dark min-h-screen font-sans relative">
-    
+
+    <!-- ===== Loading Screen ===== -->
+    <div id="loading-screen"
+         class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 transition-opacity duration-700"
+         style="background: #f0f4ff;">
+        <div class="dark-loading-bg absolute inset-0 opacity-0 transition-opacity duration-500" style="background:#0d0f1e;"></div>
+
+        <!-- Cloud icon + spinner -->
+        <div class="relative flex flex-col items-center gap-4 z-10">
+            <div style="
+                width:80px;height:80px;
+                border-radius:50%;
+                border:4px solid #d8d0f8;
+                border-top-color:#7c6fea;
+                animation:spin 1s linear infinite;">
+            </div>
+            <p class="text-[#7c6fea] dark:text-[#c4b8f8] font-black text-lg tracking-wider">กำลังโหลดค่ะ...</p>
+
+            <!-- Progress bar -->
+            <div class="w-56 h-2.5 rounded-full overflow-hidden" style="background:#d8d0f8;">
+                <div id="loading-bar"
+                     class="h-full rounded-full transition-all duration-300"
+                     style="width:0%;background:#7c6fea;"></div>
+            </div>
+            <p id="loading-percent" class="text-[#a09ad0] text-xs font-bold tracking-widest">0 / 20</p>
+        </div>
+
+        <p class="text-[#a09ad0] text-[10px] z-10 tracking-wider">Crayon Cloud — NCK Server Portal</p>
+    </div>
+    <style>
+        @keyframes spin { to { transform: rotate(360deg); } }
+        html.dark #loading-screen { background: #0d0f1e !important; }
+        html.dark #loading-screen .text-\[\#7c6fea\] { color: #c4b8f8 !important; }
+        html.dark #loading-bar { background: #c4b8f8 !important; }
+    </style>
+    <!-- ========================= -->
+
     <img src="Wallpaper-Light.webp" class="bg-img bg-light" draggable="false">
     <img src="Wallpaper-Dark.webp"  class="bg-img bg-dark" draggable="false">
 
@@ -174,7 +210,7 @@
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div class="relative w-[78%]">
                                 <img src="MainBanner.png" alt="NecoMaid Text" class="w-full h-auto" draggable="false">
-                                <span class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version 1.2</span>
+                                <span class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version 1.2.1</span>
                             </div>
                         </div>
                         <div id="click-hint" class="absolute inset-0 flex items-end justify-center pointer-events-none pb-[12%]">
@@ -687,11 +723,63 @@
             setTimeout(() => speak(false), 900);
         }
 
-        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(err => console.log('Service Worker error:', err));
-            });
-        }
+        // ===== SW Loading Gate =====
+        (function() {
+            const loadingScreen = document.getElementById('loading-screen');
+            const loadingBar    = document.getElementById('loading-bar');
+            const loadingPct    = document.getElementById('loading-percent');
+            const TOTAL_FILES   = 20; // จำนวนไฟล์ใน urlsToCache ของ sw.js
+
+            function hideLoader() {
+                loadingScreen.style.opacity = '0';
+                loadingScreen.style.pointerEvents = 'none';
+                setTimeout(() => { if (loadingScreen.parentNode) loadingScreen.remove(); }, 700);
+            }
+
+            function updateProgress(loaded, total) {
+                const pct = Math.round((loaded / total) * 100);
+                loadingBar.style.width = pct + '%';
+                loadingPct.textContent = loaded + ' / ' + total;
+            }
+
+            if ('serviceWorker' in navigator &&
+                (location.protocol === 'https:' || location.protocol === 'http:')) {
+
+                // รับ progress จาก SW ก่อน register เพื่อไม่พลาด message
+                navigator.serviceWorker.addEventListener('message', e => {
+                    if (e.data && e.data.type === 'SW_CACHE_PROGRESS') {
+                        updateProgress(e.data.loaded, e.data.total);
+                        if (e.data.done) {
+                            setTimeout(hideLoader, 500);
+                        }
+                    }
+                });
+
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => {
+                        // ถ้า SW active แล้วและไม่มีการอัปเดต → cache ครบแล้ว ผ่านได้เลย
+                        if (reg.active && !reg.installing && !reg.waiting) {
+                            caches.open('nck-portal-v1.2.1').then(cache => {
+                                cache.keys().then(keys => {
+                                    if (keys.length >= TOTAL_FILES - 2) {
+                                        updateProgress(TOTAL_FILES, TOTAL_FILES);
+                                        setTimeout(hideLoader, 300);
+                                    }
+                                    // ถ้า cache ยังไม่ครบ รอ message จาก SW
+                                });
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.log('Service Worker error:', err);
+                        hideLoader(); // SW ลงทะเบียนไม่ได้ → ผ่านไปเลย
+                    });
+
+            } else {
+                hideLoader(); // ไม่รองรับ SW
+            }
+        })();
+        // ===========================
 
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('dragstart', e => { if (e.target.nodeName === 'IMG') e.preventDefault(); });
