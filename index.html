@@ -180,6 +180,12 @@
                      style="width:0%;background:#7c6fea;"></div>
             </div>
             <p id="loading-percent" class="text-[#a09ad0] text-xs font-bold tracking-widest">0 / 21</p>
+            
+            <!-- Skip Button -->
+            <button id="skip-loading-btn" 
+                    class="mt-4 px-6 py-2 rounded-full border-2 border-[#7c6fea] text-[#7c6fea] dark:border-[#c4b8f8] dark:text-[#c4b8f8] font-bold text-sm hover:bg-[#7c6fea] hover:text-white dark:hover:bg-[#c4b8f8] dark:hover:text-[#0d0f1e] transition-all duration-500 opacity-0 pointer-events-none transform translate-y-4 outline-none">
+                ข้าม (Skip) ⏭️
+            </button>
         </div>
 
         <p class="text-[#a09ad0] text-[10px] z-10 tracking-wider">Crayon Cloud — NCK Server Portal</p>
@@ -737,22 +743,33 @@
             const loadingScreen = document.getElementById('loading-screen');
             const loadingBar    = document.getElementById('loading-bar');
             const loadingPct    = document.getElementById('loading-percent');
-            const TOTAL_FILES   = 21; // จำนวนไฟล์ใน urlsToCache ของ sw.js (บวก config.js เป็น 21)
+            const skipBtn       = document.getElementById('skip-loading-btn');
+            const TOTAL_FILES   = 21; 
 
-            let failSafeTimeout; // ตัวแปรสำหรับ Timeout
+            let skipTimeout;
 
             function hideLoader() {
-                if (failSafeTimeout) clearTimeout(failSafeTimeout);
+                if (skipTimeout) clearTimeout(skipTimeout);
                 loadingScreen.style.opacity = '0';
                 loadingScreen.style.pointerEvents = 'none';
                 setTimeout(() => { if (loadingScreen.parentNode) loadingScreen.remove(); }, 700);
             }
 
-            // ระบบป้องกันหน้าจอค้าง - บังคับปิดหน้าโหลดอัตโนมัติภายใน 5 วินาที ไม่ว่าจะเกิดอะไรขึ้น
-            failSafeTimeout = setTimeout(() => {
-                console.warn('Loading took too long. Forcing hide loader.');
-                hideLoader();
-            }, 5000);
+            // แสดงปุ่ม Skip หลังจากผ่านไป 3 วินาที
+            skipTimeout = setTimeout(() => {
+                if(skipBtn && loadingScreen.style.opacity !== '0') {
+                    skipBtn.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+                    skipBtn.classList.add('opacity-100', 'pointer-events-auto', 'translate-y-0');
+                }
+            }, 3000);
+
+            // กดปุ่ม Skip ให้เล่นเสียงและซ่อนหน้าโหลด
+            if(skipBtn) {
+                skipBtn.addEventListener('click', () => {
+                    try { playNormalClick(); } catch(e) {}
+                    hideLoader();
+                });
+            }
 
             function updateProgress(loaded, total) {
                 const pct = Math.round((loaded / total) * 100);
