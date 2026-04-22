@@ -99,6 +99,8 @@ self.addEventListener('fetch', event => {
         }).catch(() => {
           // ถ้าเน็ตหลุด และหาไม่เจอใน Cache จริงๆ
           console.error("NecoMaid: หาไฟล์นี้ไม่เจอตอนออฟไลน์เจ้าค่ะ ->", event.request.url);
+          // ✅ แก้: ต้อง return Response เสมอ ถ้า return null Safari จะ throw ทิ้งหน้าเว็บทั้งหน้าเลย
+          return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
         });
       })
   );
