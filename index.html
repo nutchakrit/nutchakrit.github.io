@@ -174,7 +174,7 @@
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div class="relative w-[78%]">
                                 <img src="MainBanner.png" alt="NecoMaid Text" class="w-full h-auto" draggable="false">
-                                <span class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version 1.1</span>
+                                <span class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version 1.1.1</span>
                             </div>
                         </div>
                         <div id="click-hint" class="absolute inset-0 flex items-end justify-center pointer-events-none pb-[12%]">
@@ -284,7 +284,9 @@
             </div>
         </button>
 
-        </div></div><div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none hidden sm:block landscape:block">
+        </div></div>
+        
+        <div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none hidden landscape:block xl:block">
         <div class="relative flex items-end justify-end">
             <div class="pointer-events-auto relative cursor-pointer group" onclick="speak(true)">
                 <div class="w-[25vw] h-[45vh] md:w-[15vw] md:h-[60vh] max-w-[320px] max-h-[550px]"></div>
@@ -335,7 +337,6 @@
         </div>
     </div>
 
-    <!-- ===== WATERMARK & COPYRIGHT ===== -->
     <div class="fixed bottom-3 left-5 watermark text-[9px] md:text-[10px] font-black uppercase tracking-widest z-30 flex flex-col gap-0.5">
         <span class="pointer-events-none">NCK Server | Designed by Master</span>
         <span class="opacity-80 flex items-center gap-1">
@@ -346,7 +347,6 @@
         </span>
     </div>
 
-    <!-- ===== CREDIT MODAL (Pop-up ลิขสิทธิ์) ===== -->
     <div id="credit-modal" 
          class="fixed inset-0 z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/50 backdrop-blur-sm"
          onclick="closeCredit(event)">
