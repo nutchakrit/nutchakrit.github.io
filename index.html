@@ -283,9 +283,11 @@
 
         </div></div><div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none">
         <div class="relative flex items-end justify-end">
-            <div class="pointer-events-auto relative cursor-pointer group" onclick="speak()">
+            <!-- ส่งค่า true เพื่อบอกว่านี่คือการกดโดยผู้ใช้ จะได้มีเสียงคลิก -->
+            <div class="pointer-events-auto relative cursor-pointer group" onclick="speak(true)">
                 <div class="w-20 h-32 md:w-28 md:h-48"></div>
             </div>
+            <!-- ส่งค่า true เช่นเดียวกัน -->
             <div id="maid-speech-box"
                  class="pointer-events-auto absolute right-16 bottom-2 md:right-24 md:bottom-4
                         px-5 py-4 md:px-6 md:py-5
@@ -295,7 +297,7 @@
                         bg-white/85 dark:bg-[#1e1a3a]/85 backdrop-blur-md
                         border-2 border-[#d8d0f8] dark:border-[#4a3e9a]
                         rounded-2xl rounded-br-md text-left z-10"
-                 onclick="speak()">
+                 onclick="speak(true)">
                 <div class="absolute -top-3.5 left-4 md:left-5 bg-[#7c6fea] dark:bg-[#4a3e9a] text-white px-3 py-0.5 rounded-full text-[10px] md:text-xs font-black tracking-wider shadow-sm">
                     NecoMaid
                 </div>
@@ -441,8 +443,13 @@
             "อย่าลืมพักผ่อนบ้างนะคะ นายท่านโหมงานหนักเกินไปแล้วนะ 🥺"
         ];
 
-        function speak() {
-            playNormalClick();
+        // เพิ่มการรับค่า fromUserClick เพื่อแยกว่าใครเป็นคนเรียกใช้
+        function speak(fromUserClick = false) {
+            // เล่นเสียงเฉพาะเวลาผู้ใช้จงใจคลิกเองเท่านั้น
+            if (fromUserClick === true) {
+                playNormalClick();
+            }
+
             const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
             speechText.innerText = randomQuote;
             speechBox.classList.replace('opacity-0','opacity-100');
@@ -528,7 +535,9 @@
             setTimeout(() => {
                 audio.play().then(() => { isPlaying = true; toggleBtn.textContent = '🔊'; }).catch(() => {});
             }, 300);
-            setTimeout(speak, 900);
+            
+            // ส่งค่า false เพื่อบอกให้ speak() ทำงานแบบอัตโนมัติ โดยไม่ให้เล่นเสียง Normal Click
+            setTimeout(() => speak(false), 900);
         }
 
         // ตรวจสอบโปรโตคอลก่อนลงทะเบียน Service Worker เพื่อป้องกัน Error (':') is not supported
