@@ -3,7 +3,7 @@
  * ออกแบบมาเพื่อรองรับการใช้งาน Offline ในญี่ปุ่น 🇯🇵
  */
 
-const CACHE_NAME = 'necomaid-calc-v6';
+const CACHE_NAME = 'necomaid-calc-v1.2';
 
 // 📝 รายชื่อไฟล์ที่ต้องเก็บไว้ใช้ตอนออฟไลน์
 const urlsToCache = [

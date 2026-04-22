@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nck-portal-v5'; // อัปเกรดเป็น v5 เพื่อล้างบั๊กเก่า
+const CACHE_NAME = 'nck-portal-v1.2';
 
 // 📝 รายชื่อไฟล์ที่ต้องเก็บไว้ใช้ตอนออฟไลน์ (เน้นไฟล์ที่จำเป็นจริงๆ)
 const urlsToCache = [
