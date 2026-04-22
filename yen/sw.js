@@ -1,118 +1,117 @@
-const CACHE_NAME = 'necomaid-calc-v4';
+/**
+ * NecoYen Service Worker v6
+ * ออกแบบมาเพื่อรองรับการใช้งาน Offline ในญี่ปุ่น 🇯🇵
+ */
 
-// 💡 Cache เฉพาะไฟล์ที่จำเป็นสำหรับแอปนี้เท่านั้น
+const CACHE_NAME = 'necomaid-calc-v6';
+
+// 📝 รายชื่อไฟล์ที่ต้องเก็บไว้ใช้ตอนออฟไลน์
 const urlsToCache = [
-  './',               // หน้า index
-  './index.html',     // โค้ดหลัก
-  './Wave.png',       // รูปน้องเมด
-  './unticked.png',   // รูปช่องว่าง
-  './ticked.png',     // รูปเครื่องหมายถูก
-  './icon-192.png',   // ไอคอน 
-  './manifest.json',  // การตั้งค่าแอป
-  // พวก Tailwind กับ Font จำเป็นต้องโหลดจากเน็ตมาเก็บไว้ ไม่งั้นหน้าตาตอนออฟไลน์จะไม่สวย
-  'https://cdn.tailwindcss.com', 
+  './',
+  './index.html',
+  './manifest.json',
+  './unticked.png',
+  './ticked.png',
+  './icon-192.png',
+  // รายชื่อไฟล์เพลงจาก music-timestamps.json
+  './hatachi-no-koi.mp3',
+  './Aoi-Sangosho.mp3',
+  './BookEndBossa.mp3',
+  './suki-no-oto.mp3',
+  './anata-no-koibito.mp3',
+  './OnClick.mp3',
+  './Normal-Mouse-Click.mp3',
+  // ไฟล์ภายนอกที่จำเป็นสำหรับการแสดงผล
+  'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Sarabun:wght@100;300;400;700;800&display=swap'
 ];
 
-// 🔑 Key สำหรับเก็บเรทสำรองไว้ใน Cache Storage (ใช้แทน localStorage ใน SW)
+// 🔑 Key สำหรับเก็บเรทเงินสำรองใน Cache Storage
 const RATE_CACHE_KEY = 'necomaid-cached-rate';
 
+// ขั้นตอนติดตั้ง: เก็บไฟล์ลงสมอง (Cache)
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      console.log('NecoMaid: อบข้อมูลลงสมองเฉพาะส่วนเครื่องคิดเลขเรียบร้อย! 🧠✨');
-      // ✅ แก้: ใช้ allSettled แทน addAll
-      // addAll() จะ fail ทั้งหมดถ้าไฟล์เดียวโหลดไม่ได้
-      // allSettled() จะ cache ได้เท่าที่โหลดสำเร็จ ไม่ทิ้งทุกอย่าง
+      console.log('SW: กำลังเตรียมระบบ Offline สำหรับ Version 1.1.2...');
       return Promise.allSettled(
         urlsToCache.map(url =>
-          cache.add(url).catch(err => {
-            console.warn(`NecoMaid: cache ไฟล์นี้ไม่ได้ แต่ไม่เป็นไรเจ้าค่ะ -> ${url}`, err);
-          })
+          fetch(url).then(response => {
+            if (!response.ok) throw new Error(`Load failed: ${url}`);
+            
+            // ✅ แก้ไขบั๊ก Safari: ถ้ามีการ Redirect ให้ Fetch ใหม่เอาค่าที่สะอาดมาเก็บ
+            if (response.redirected) {
+              return fetch(response.url).then(cleanRes => cache.put(url, cleanRes));
+            }
+            return cache.put(url, response);
+          }).catch(err => console.warn(`SW: ข้ามการ Cache -> ${url}`))
         )
       );
     })
   );
 });
 
+// ขั้นตอนเปิดใช้งาน: เคลียร์ความจำเก่า (ลบ Cache v4/v5 ทิ้ง)
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys => Promise.all(
+      keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+    ))
+  );
+});
+
+// การดึงข้อมูล: เน้นความเร็ว (Cache First) และรองรับออฟไลน์
 self.addEventListener('fetch', event => {
-  // ดึงเรทเงิน — ต้องพยายามใช้เน็ตก่อนเสมอ
+  // พิเศษ: จัดการคำขอเรทเงินจาก API
   if (event.request.url.includes('open.er-api.com')) {
     event.respondWith(
-      fetch(event.request)
-        .then(networkResponse => {
-          // ✅ แก้: ตอนออนไลน์ แอบบันทึกเรทล่าสุดเอาไว้ใน Cache เผื่อไว้ใช้ตอนออฟไลน์
-          networkResponse.clone().json().then(data => {
-            if (data?.rates?.THB > 0) {
-              caches.open(CACHE_NAME).then(cache => {
-                const rateResponse = new Response(JSON.stringify({ rates: { THB: data.rates.THB } }), {
-                  headers: { 'Content-Type': 'application/json' }
-                });
-                cache.put(RATE_CACHE_KEY, rateResponse);
-                console.log(`NecoMaid: บันทึกเรทสำรองไว้แล้ว (${data.rates.THB}) 💾`);
-              });
-            }
-          }).catch(() => {});
-          return networkResponse;
-        })
-        .catch(() => {
-          console.log("NecoMaid: ไม่มีเน็ต ลองหาเรทสำรองใน Cache ก่อนนะเจ้าค่ะ 📡");
-          // ✅ แก้: แทนที่จะคืน THB: 0 ให้ดึงเรทที่บันทึกไว้ครั้งล่าสุดมาใช้แทน
-          return caches.open(CACHE_NAME).then(cache =>
-            cache.match(RATE_CACHE_KEY).then(cached => {
-              if (cached) {
-                console.log("NecoMaid: เจอเรทสำรอง ใช้อันเก่าแทนได้เลยเจ้าค่ะ ✅");
-                return cached;
-              }
-              // ถ้าไม่มีเรทสำรองเลย (ยังไม่เคยออนไลน์มาก่อน) ค่อยคืน 0
-              console.warn("NecoMaid: ไม่มีเรทสำรอง ยังไม่เคยออนไลน์มาก่อนเลยเจ้าค่ะ 😢");
-              return new Response(JSON.stringify({ rates: { THB: 0 } }), {
+      fetch(event.request).then(networkResponse => {
+        // เมื่อออนไลน์: บันทึกเรทใหม่ล่าสุดเก็บไว้เสมอ
+        const clone = networkResponse.clone();
+        clone.json().then(data => {
+          if (data?.rates?.THB) {
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(RATE_CACHE_KEY, new Response(JSON.stringify(data), {
                 headers: { 'Content-Type': 'application/json' }
-              });
-            })
-          );
-        })
+              }));
+            });
+          }
+        }).catch(() => {});
+        return networkResponse;
+      }).catch(() => {
+        // เมื่อออฟไลน์: ดึงเรทเก่าจาก Cache มาใช้แทน
+        return caches.match(RATE_CACHE_KEY);
+      })
     );
     return;
   }
 
-  // สำหรับไฟล์อื่นๆ ในระบบ
+  // สำหรับไฟล์ทั่วไป (HTML, CSS, MP3, Images)
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // ถ้ามีใน Cache (หน้าเว็บ, รูป) ให้เอาจากที่เก็บไว้มาใช้เลย
-        if (response) {
-          return response;
+    caches.match(event.request).then(cachedResponse => {
+      // 1. ถ้ามีใน Cache ให้ดึงมาใช้เลย (เร็วที่สุด)
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+
+      // 2. ถ้าไม่มีใน Cache ให้โหลดจากเน็ต
+      return fetch(event.request).then(networkResponse => {
+        // ตรวจสอบความถูกต้องและจัดการเรื่อง Redirect อีกครั้ง
+        if (!networkResponse || networkResponse.status !== 200) return networkResponse;
+        
+        if (networkResponse.redirected) {
+          return fetch(networkResponse.url);
         }
-
-        // ถ้าไม่มี ลองไปโหลดจากเน็ตมา
-        return fetch(event.request).then(networkResponse => {
-          // โหลดเสร็จ ก็แอบเอามาใส่ Cache ไว้ใช้รอบหน้า
-          if (event.request.url.startsWith('http')) {
-            return caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, networkResponse.clone());
-              return networkResponse;
-            });
-          }
-          return networkResponse;
-        }).catch(() => {
-          // ถ้าเน็ตหลุด และหาไม่เจอใน Cache จริงๆ
-          console.error("NecoMaid: หาไฟล์นี้ไม่เจอตอนออฟไลน์เจ้าค่ะ ->", event.request.url);
-          // ✅ แก้: ต้อง return Response เสมอ ถ้า return null Safari จะ throw ทิ้งหน้าเว็บทั้งหน้าเลย
-          return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
-        });
-      })
-  );
-});
-
-self.addEventListener('activate', event => {
-  // ลบ Cache ของเวอร์ชันเก่าทิ้ง จะได้ไม่รกเครื่อง
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.filter(name => name !== CACHE_NAME).map(name => caches.delete(name))
-      );
+        
+        return networkResponse;
+      }).catch(() => {
+        // กรณีออฟไลน์สุดๆ และหาไฟล์ไม่เจอ
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+        return new Response('Offline Mode', { status: 503 });
+      });
     })
   );
 });
