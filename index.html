@@ -323,9 +323,57 @@
         </div>
     </div>
 
-    <div class="fixed bottom-3 left-5 watermark text-[9px] md:text-[10px] font-black uppercase tracking-widest pointer-events-none z-30 flex flex-col gap-0.5">
-        <span>NCK Server | Designed by Master</span>
-        <span class="opacity-80">© 2026 Nutchakrit Tuntivanitchphong. All rights reserved.</span>
+    <!-- ===== WATERMARK & COPYRIGHT ===== -->
+    <div class="fixed bottom-3 left-5 watermark text-[9px] md:text-[10px] font-black uppercase tracking-widest z-30 flex flex-col gap-0.5">
+        <span class="pointer-events-none">NCK Server | Designed by Master</span>
+        <span class="opacity-80 flex items-center gap-1">
+            <!-- ใส่ onclick="openCredit()" ที่รูปตัว C ให้กดคลิกได้ -->
+            <img src="my-copyright.png" alt="©" 
+                 class="h-2.5 md:h-3 w-auto inline-block cursor-pointer hover:scale-125 transition-transform pointer-events-auto" 
+                 draggable="false" onclick="openCredit()"> 
+            <span class="pointer-events-none">2026 Nutchakrit Tuntivanitchphong. All rights reserved.</span>
+        </span>
+    </div>
+
+    <!-- ===== CREDIT MODAL (Pop-up ลิขสิทธิ์) ===== -->
+    <div id="credit-modal" 
+         class="fixed inset-0 z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/50 backdrop-blur-sm"
+         onclick="closeCredit(event)">
+        
+        <!-- กล่องเนื้อหา Pop-up (เอาขอบสี่เหลี่ยมและสีพื้นหลังออก เพื่อให้เป็นทรงก้อนเมฆตามภาพ) -->
+        <div id="credit-content" 
+             class="relative w-[90%] md:w-[650px] max-w-full transform scale-95 transition-transform duration-300 flex items-center justify-center">
+            
+            <!-- ภาพพื้นหลัง Credit.png (ใช้ drop-shadow เพื่อให้เงาโค้งตามรูปทรงเมฆ) -->
+            <img src="Credit.png" alt="Credit Background" class="w-full h-auto drop-shadow-2xl" draggable="false">
+
+            <!-- ข้อความด้านใน (วางซ้อนทับภาพเมฆ จัดให้อยู่ตรงกลาง) -->
+            <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 md:p-14 text-center">
+                <!-- ปุ่มปิด (ขยับให้เข้ามาด้านในเมฆหน่อย) -->
+                <button onclick="closeCredit(event)" id="close-modal-btn" class="absolute top-8 right-10 md:top-12 md:right-16 text-2xl md:text-3xl text-[#7c6fea] dark:text-[#c4b8f8] hover:scale-125 transition-transform outline-none leading-none drop-shadow-md">&times;</button>
+                
+                <h2 class="text-lg md:text-xl font-bold mb-3 md:mb-5 text-[#7c6fea] dark:text-[#c4b8f8] drop-shadow-sm mt-4">
+                    ⚠️ ประกาศลิขสิทธิ์ (Copyright)
+                </h2>
+                
+                <div class="text-[10px] md:text-sm text-left space-y-2 md:space-y-3 font-semibold text-[#5a5480] dark:text-[#a89ff5] w-[85%]">
+                    <p>
+                        หมายเหตุ: ดีไซน์คาแรคเตอร์ "NecoMaid" เป็นลิขสิทธิ์ของ <strong class="text-pink-500 dark:text-pink-400">sonovr</strong> 
+                    </p>
+                    <p>
+                        แต่ <strong>ภาพวาดและอาร์ตเวิร์ค</strong> ของน้องเมดรวมถึงภาพอื่นๆ ที่ปรากฏในโปรเจกต์นี้ เป็นผลงานวาดและลิขสิทธิ์แท้จริงของ <strong class="text-[#7c6fea] dark:text-[#c4b8f8]">ณัชกฤษณ์ ตันติวาณิชย์พงศ์</strong>
+                    </p>
+                    <ul class="space-y-1.5 mt-2 md:mt-3 pt-2 md:pt-3 border-t-2 border-[#d8d0f8]/50 dark:border-[#4a3e9a]/50">
+                        <li>❌ ห้ามบันทึก คัดลอก ดัดแปลง หรือนำภาพวาดไปใช้ในโปรเจกต์อื่นโดยเด็ดขาด</li>
+                        <li>❌ ห้ามนำภาพไปใช้ในเชิงพาณิชย์</li>
+                        <li>❌ <strong>No AI Training:</strong> ห้ามนำภาพไปใช้ในการเทรน AI ในทุกกรณี</li>
+                    </ul>
+                    <p class="text-center text-[#7c6fea] dark:text-[#c4b8f8] mt-3 md:mt-5 text-[9px] md:text-xs">
+                        หากพบเห็นจะมีการดำเนินคดีตามกฎหมาย
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <audio id="bg-music" preload="auto"></audio>
@@ -467,13 +515,48 @@
             setTimeout(speak, 900);
         }
 
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+        // ตรวจสอบโปรโตคอลก่อนลงทะเบียน Service Worker เพื่อป้องกัน Error (':') is not supported
+        if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('Service Worker error:', err));
+            });
         }
 
         // ระบบป้องกันเบื้องต้น
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('dragstart', e => { if (e.target.nodeName === 'IMG') e.preventDefault(); });
+
+        // =========================================================
+        // ===== ระบบ Pop-up Credit Modal =====
+        // =========================================================
+        function openCredit() {
+            const modal = document.getElementById('credit-modal');
+            const content = document.getElementById('credit-content');
+            
+            // เล่นเสียงเอฟเฟกต์เบาๆ เวลากดเรียก Pop-up
+            const sfxClick = document.getElementById('sfx-click');
+            if (sfxClick) {
+                sfxClick.volume = 0.5;
+                sfxClick.currentTime = 0;
+                sfxClick.play().catch(()=>{});
+            }
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function closeCredit(e) {
+            // เช็คให้แน่ใจว่าคลิกที่ฉากหลังสีดำ หรือคลิกที่ปุ่มกากบาทเท่านั้น
+            if (e && e.target.id !== 'credit-modal' && e.target.id !== 'close-modal-btn') return;
+            
+            const modal = document.getElementById('credit-modal');
+            const content = document.getElementById('credit-content');
+            
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+        }
     </script>
 </body>
 </html>
