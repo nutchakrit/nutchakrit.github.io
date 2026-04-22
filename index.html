@@ -138,14 +138,14 @@
         :root { --slider-bg: #d8d0f8; --slider-fill: #7c6fea; }
         .dark { --slider-bg: #4a3e9a; --slider-fill: #c4b8f8; }
 
-        #volume-slider {
+        .custom-slider {
             -webkit-appearance: none; appearance: none;
             height: 6px; border-radius: 3px;
-            background: linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) 40%, var(--slider-bg) 40%);
+            background: var(--slider-bg);
             outline: none; cursor: pointer;
         }
-        #volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 14px; height: 14px;
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 12px; height: 12px;
             border-radius: 50%; background: var(--slider-fill);
             box-shadow: 0 0 5px rgba(124,111,234,0.6);
         }
@@ -172,7 +172,10 @@
                     <div class="relative w-full flex items-center justify-center group-hover:scale-105 transition-transform duration-700 ease-out">
                         <img src="MainCloud.png" alt="Portal Cloud" class="w-full h-auto cloud-blend cloud-pulse" draggable="false">
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <img src="MainBanner.png" alt="NecoMaid Text" class="w-[78%] h-auto" draggable="false">
+                            <div class="relative w-[78%]">
+                                <img src="MainBanner.png" alt="NecoMaid Text" class="w-full h-auto" draggable="false">
+                                <span class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version 1.1</span>
+                            </div>
                         </div>
                         <div id="click-hint" class="absolute inset-0 flex items-end justify-center pointer-events-none pb-[12%]">
                             <span class="text-[11px] md:text-sm font-black text-[#7c6fea] dark:text-[#c4b8f8]
@@ -281,13 +284,11 @@
             </div>
         </button>
 
-        </div></div><div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none">
+        </div></div><div class="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-50 pointer-events-none hidden sm:block landscape:block">
         <div class="relative flex items-end justify-end">
-            <!-- ส่งค่า true เพื่อบอกว่านี่คือการกดโดยผู้ใช้ จะได้มีเสียงคลิก -->
             <div class="pointer-events-auto relative cursor-pointer group" onclick="speak(true)">
-                <div class="w-20 h-32 md:w-28 md:h-48"></div>
+                <div class="w-[25vw] h-[45vh] md:w-[15vw] md:h-[60vh] max-w-[320px] max-h-[550px]"></div>
             </div>
-            <!-- ส่งค่า true เช่นเดียวกัน -->
             <div id="maid-speech-box"
                  class="pointer-events-auto absolute right-16 bottom-2 md:right-24 md:bottom-4
                         px-5 py-4 md:px-6 md:py-5
@@ -312,15 +313,24 @@
          class="fixed bottom-12 left-5 z-40 flex flex-col items-start gap-1"
          style="opacity:0;pointer-events:none;transition:opacity 0.8s ease 0.3s;">
         <div id="music-player"
-             class="flex items-center gap-1.5 md:gap-2 px-3 py-1.5 rounded-2xl bg-white/60 dark:bg-[#1e1a3a]/60 border border-[#d8d0f8] dark:border-[#4a3e9a] backdrop-blur-md shadow-lg transition-all duration-300">
-            <button onclick="prevSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏮️</button>
-            <button id="music-toggle" onclick="toggleMusic()" class="text-lg leading-none hover:scale-125 transition-transform duration-200 outline-none select-none">🔇</button>
-            <button onclick="nextSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏭️</button>
-            <input id="volume-slider" type="range" min="0" max="100" value="40" oninput="setVolume(this.value)" class="w-16 md:w-20 ml-1">
-            <div class="overflow-hidden w-20 md:w-28 ml-1">
-                <div id="now-playing-text" class="text-[9px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] whitespace-nowrap" style="display:inline-block; animation: marquee 10s linear infinite;">
-                    🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp;
+             class="flex flex-col gap-1.5 px-3 py-2 rounded-2xl bg-white/60 dark:bg-[#1e1a3a]/60 border border-[#d8d0f8] dark:border-[#4a3e9a] backdrop-blur-md shadow-lg transition-all duration-300 w-[240px] md:w-[280px]">
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center gap-1.5 md:gap-2">
+                    <button onclick="prevSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏮️</button>
+                    <button id="music-toggle" onclick="toggleMusic()" class="text-lg leading-none hover:scale-125 transition-transform duration-200 outline-none select-none">🔇</button>
+                    <button onclick="nextSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏭️</button>
+                    <input id="volume-slider" type="range" min="0" max="100" value="25" oninput="setVolume(this.value)" class="custom-slider w-16 md:w-20 ml-1">
                 </div>
+                <div class="overflow-hidden w-20 md:w-28 ml-1">
+                    <div id="now-playing-text" class="text-[9px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] whitespace-nowrap" style="display:inline-block; animation: marquee 10s linear infinite;">
+                        🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp;
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-1.5 w-full mt-0.5">
+                <span id="current-time" class="text-[8px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] w-6 text-right select-none">0:00</span>
+                <input id="seek-slider" type="range" min="0" max="100" value="0" step="0.1" class="custom-slider flex-grow mx-1">
+                <span id="duration-time" class="text-[8px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] w-6 text-left select-none">0:00</span>
             </div>
         </div>
     </div>
@@ -329,7 +339,6 @@
     <div class="fixed bottom-3 left-5 watermark text-[9px] md:text-[10px] font-black uppercase tracking-widest z-30 flex flex-col gap-0.5">
         <span class="pointer-events-none">NCK Server | Designed by Master</span>
         <span class="opacity-80 flex items-center gap-1">
-            <!-- ใส่ onclick="openCredit()" ที่รูปตัว C ให้กดคลิกได้ -->
             <img src="my-copyright.png" alt="©" 
                  class="h-2.5 md:h-3 w-auto inline-block cursor-pointer hover:scale-125 transition-transform pointer-events-auto" 
                  draggable="false" onclick="openCredit()"> 
@@ -342,16 +351,12 @@
          class="fixed inset-0 z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/50 backdrop-blur-sm"
          onclick="closeCredit(event)">
         
-        <!-- กล่องเนื้อหา Pop-up (เอาขอบสี่เหลี่ยมและสีพื้นหลังออก เพื่อให้เป็นทรงก้อนเมฆตามภาพ) -->
         <div id="credit-content" 
              class="relative w-[90%] md:w-[650px] max-w-full transform scale-95 transition-transform duration-300 flex items-center justify-center">
             
-            <!-- ภาพพื้นหลัง Credit.png (ใช้ drop-shadow เพื่อให้เงาโค้งตามรูปทรงเมฆ) -->
             <img src="Credit.png" alt="Credit Background" class="w-full h-auto drop-shadow-2xl" draggable="false">
 
-            <!-- ข้อความด้านใน (วางซ้อนทับภาพเมฆ จัดให้อยู่ตรงกลาง) -->
             <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 md:p-14 text-center">
-                <!-- ปุ่มปิด (ขยับให้เข้ามาด้านในเมฆหน่อย) -->
                 <button onclick="closeCredit(event)" id="close-modal-btn" class="absolute top-8 right-10 md:top-12 md:right-16 text-2xl md:text-3xl text-[#7c6fea] dark:text-[#c4b8f8] hover:scale-125 transition-transform outline-none leading-none drop-shadow-md">&times;</button>
                 
                 <h2 class="text-lg md:text-xl font-bold mb-3 md:mb-5 text-[#7c6fea] dark:text-[#c4b8f8] drop-shadow-sm mt-4">
@@ -387,21 +392,31 @@
         const body = document.body;
         const themeIcon = document.getElementById('theme-icon');
 
-        // ฟังก์ชันเสริม: เล่นเสียงคลิกเมาส์ปกติ (สำหรับปุ่มอื่นๆ ทั่วไป)
         function playNormalClick() {
             const sfx = document.getElementById('sfx-normal-click');
             if (sfx) {
-                sfx.volume = 0.5; // ลดระดับเสียงลง 50% ให้พอดีกับเสียงของ Portal หลัก
+                sfx.volume = 0.25;
                 sfx.currentTime = 0;
                 sfx.play().catch(()=>{});
             }
         }
 
-        function updateSliderBgColor() {
+        function updateSliderBgColor(element, percentage) {
+            if(element) {
+                element.style.background = `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${percentage}%, var(--slider-bg) ${percentage}%)`;
+            }
+        }
+
+        function refreshSliders() {
             const volSlider = document.getElementById('volume-slider');
-            if(volSlider) {
-                const val = volSlider.value;
-                volSlider.style.background = `linear-gradient(to right, var(--slider-fill) 0%, var(--slider-fill) ${val}%, var(--slider-bg) ${val}%)`;
+            if (volSlider) updateSliderBgColor(volSlider, volSlider.value);
+
+            const seekSlider = document.getElementById('seek-slider');
+            const audio = document.getElementById('bg-music');
+            if (seekSlider && audio && audio.duration) {
+                updateSliderBgColor(seekSlider, (seekSlider.value / audio.duration) * 100);
+            } else if (seekSlider) {
+                updateSliderBgColor(seekSlider, 0);
             }
         }
 
@@ -415,7 +430,7 @@
                 body.classList.remove('dark-active');
                 themeIcon.innerText = '☀️';
             }
-            updateSliderBgColor();
+            refreshSliders();
         }
 
         const savedTheme = localStorage.getItem('theme');
@@ -443,9 +458,10 @@
             "อย่าลืมพักผ่อนบ้างนะคะ นายท่านโหมงานหนักเกินไปแล้วนะ 🥺"
         ];
 
-        // เพิ่มการรับค่า fromUserClick เพื่อแยกว่าใครเป็นคนเรียกใช้
         function speak(fromUserClick = false) {
-            // เล่นเสียงเฉพาะเวลาผู้ใช้จงใจคลิกเองเท่านั้น
+            // ดักไม่ให้คุยถ้ายังไม่ได้กดเข้า Portal
+            if (!window._portalEntered) return;
+
             if (fromUserClick === true) {
                 playNormalClick();
             }
@@ -464,59 +480,164 @@
         }
 
         const playlist = [
-            { title: 'hatachi-no-koi', src: 'hatachi-no-koi.mp3' },
-            { title: 'Aoi-Sangosho', src: 'Aoi-Sangosho.mp3' },
-            { title: 'BookEndBossa', src: 'BookEndBossa.mp3' }
+            { title: 'hatachi no koi', src: 'hatachi-no-koi.mp3' },
+            { title: 'Aoi Sangosho', src: 'Aoi-Sangosho.mp3' },
+            { title: 'Book End Bossa', src: 'BookEndBossa.mp3' },
+            { title: 'Suki No Oto', src: 'suki-no-oto.mp3'},
+            {title: 'Anata no koibito ni naritai', src: 'anata-no-koibito.mp3'}
         ];
-        
+
+        let musicTimestamps = {};
+        fetch('./music-timestamps.json')
+            .then(r => r.json())
+            .then(data => { musicTimestamps = data; })
+            .catch(() => {});
+
+        // ฟังก์ชันนี้รองรับเสี้ยววินาทีอยู่แล้ว (เช่น 0:36.5 หรือ 36.5)
+        function parseTimestamp(ts) {
+            if (!ts) return 0;
+            const parts = String(ts).split(':');
+            if (parts.length === 2) return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+            return parseFloat(parts[0]);
+        }
+
         let currentSongIndex = Math.floor(Math.random() * playlist.length);
         const audio = document.getElementById('bg-music');
         const toggleBtn = document.getElementById('music-toggle');
         const nowPlayingText = document.getElementById('now-playing-text');
         let isPlaying = false;
+        let fadeInterval = null; // เพิ่มตัวแปรเก็บสถานะ Fade-in
 
-        audio.volume = 0.4;
+        // โหลดค่าความดังเสียงจาก localStorage ถ้าไม่มีให้ตั้งเริ่มต้นที่ 25%
+        let savedVolume = localStorage.getItem('musicVolume');
+        let initialVolume = savedVolume !== null ? savedVolume : 25;
+        audio.volume = initialVolume / 100;
+        
+        // รอให้ DOM โหลดเสร็จแล้วค่อยอัปเดตหน้าตาหลอด Slider ป้องกันบั๊กตอน F5
+        window.addEventListener('DOMContentLoaded', () => {
+            const volSlider = document.getElementById('volume-slider');
+            if(volSlider) {
+                volSlider.value = initialVolume;
+                updateSliderBgColor(volSlider, initialVolume);
+            }
+        });
 
-        function loadSong(index) {
-            audio.src = playlist[index].src;
-            nowPlayingText.innerHTML = `🎵 ${playlist[index].title} &nbsp;&nbsp;&nbsp;&nbsp; 🎵 ${playlist[index].title} &nbsp;&nbsp;&nbsp;&nbsp;`;
-            if (isPlaying) audio.play().catch(() => {});
+        // ===== Seek Slider Logic =====
+        const seekSlider = document.getElementById('seek-slider');
+        const currentTimeEl = document.getElementById('current-time');
+        const durationEl = document.getElementById('duration-time');
+        let isSeeking = false;
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        audio.addEventListener('loadedmetadata', () => {
+            durationEl.textContent = formatTime(audio.duration);
+            seekSlider.max = audio.duration;
+            updateSliderBgColor(seekSlider, 0);
+        });
+
+        audio.addEventListener('timeupdate', () => {
+            if (!isSeeking && audio.duration) {
+                seekSlider.value = audio.currentTime;
+                currentTimeEl.textContent = formatTime(audio.currentTime);
+                updateSliderBgColor(seekSlider, (audio.currentTime / audio.duration) * 100);
+            }
+        });
+
+        seekSlider.addEventListener('input', () => {
+            isSeeking = true;
+            currentTimeEl.textContent = formatTime(seekSlider.value);
+            updateSliderBgColor(seekSlider, (seekSlider.value / audio.duration) * 100 || 0);
+        });
+
+        seekSlider.addEventListener('change', () => {
+            audio.currentTime = seekSlider.value;
+            isSeeking = false;
+        });
+        // =============================
+
+        function loadSong(index, useTimestamp = false) {
+            const song = playlist[index];
+            
+            // เช็คว่าเป็นเพลงเดิมที่ถูกเซ็ตไว้ใน audio หรือไม่ เพื่อป้องกันการโหลดซ้ำแล้วบั๊กตอน F5
+            const isSameSong = audio.src && audio.src.includes(song.src);
+
+            if (!isSameSong) {
+                audio.src = song.src;
+            }
+
+            nowPlayingText.innerHTML = `🎵 ${song.title} &nbsp;&nbsp;&nbsp;&nbsp; 🎵 ${song.title} &nbsp;&nbsp;&nbsp;&nbsp;`;
+
+            const seekTo = useTimestamp ? parseTimestamp(musicTimestamps[song.src]) : 0;
+
+            const setupPlayback = () => {
+                if (useTimestamp && seekTo > 0) {
+                    audio.currentTime = seekTo;
+                } else if (!useTimestamp) {
+                    audio.currentTime = 0;
+                }
+                
+                if (isPlaying) {
+                    audio.play().catch(e => console.log("Audio play error:", e));
+                }
+            };
+
+            // ถ้าเปลี่ยนเพลงใหม่ และต้องการใช้ timestamp ให้รอ metadata โหลดก่อนค่อยเซ็ตเวลาและเล่น
+            if (!isSameSong && useTimestamp && seekTo > 0) {
+                const onMeta = () => {
+                    setupPlayback();
+                    audio.removeEventListener('loadedmetadata', onMeta);
+                };
+                audio.addEventListener('loadedmetadata', onMeta);
+            } else {
+                // ถ้าเป็นเพลงเดิมที่โหลดแล้ว หรือไม่ต้องการรอ ก็เซ็ตเวลาและเล่นได้เลย (แก้บั๊กกดไม่เล่น)
+                setupPlayback();
+            }
         }
 
         loadSong(currentSongIndex);
 
         function toggleMusic() {
             playNormalClick();
+            if (fadeInterval) clearInterval(fadeInterval); // ยกเลิก Fade-in ถ้าผู้ใช้กดเปิด/ปิดเพลงเอง
             if (isPlaying) { audio.pause(); toggleBtn.textContent = '🔇'; isPlaying = false; }
             else { audio.play().catch(() => {}); toggleBtn.textContent = '🔊'; isPlaying = true; }
         }
 
         function setVolume(val) {
+            if (fadeInterval) clearInterval(fadeInterval); // ยกเลิก Fade-in ถ้าผู้ใช้ปรับหลอดเสียงเอง
             audio.volume = val / 100;
-            updateSliderBgColor();
+            updateSliderBgColor(document.getElementById('volume-slider'), val);
+            localStorage.setItem('musicVolume', val); // บันทึกค่าระดับเสียงลงในเครื่อง
         }
 
-        function nextSong() {
-            playNormalClick();
+        function nextSong(playClick = true) {
+            if (playClick) playNormalClick();
             currentSongIndex = (currentSongIndex + 1) % playlist.length;
             loadSong(currentSongIndex);
             if (!isPlaying) toggleMusic();
         }
 
-        function prevSong() {
-            playNormalClick();
+        function prevSong(playClick = true) {
+            if (playClick) playNormalClick();
             currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
             loadSong(currentSongIndex);
             if (!isPlaying) toggleMusic();
         }
 
-        audio.addEventListener('ended', nextSong);
+        // ปิดเสียงคลิกตอนที่เพลงเล่นจบ (ส่งค่า false ไป)
+        audio.addEventListener('ended', () => nextSong(false));
 
         function enterPortal() {
             if (window._portalEntered) return;
             window._portalEntered = true;
             const sfxClick = document.getElementById('sfx-click');
-            if (sfxClick) { sfxClick.volume = 0.5; sfxClick.play().catch(()=>{}); }
+            if (sfxClick) { sfxClick.volume = 0.25; sfxClick.play().catch(()=>{}); }
 
             document.getElementById('main-cloud-wrap').style.transform = 'scale(1)';
             document.querySelector('.cloud-pulse').classList.add('entered');
@@ -533,49 +654,62 @@
             }, 350);
 
             setTimeout(() => {
-                audio.play().then(() => { isPlaying = true; toggleBtn.textContent = '🔊'; }).catch(() => {});
+                // สั่งให้สถานะพร้อมเล่น และเรียกโหลดเพลงพร้อมข้ามเวลาที่ตั้งไว้
+                isPlaying = true; 
+                toggleBtn.textContent = '🔊';
+                
+                // เตรียมระบบ Fade-in
+                const volSlider = document.getElementById('volume-slider');
+                const targetVolume = volSlider ? volSlider.value / 100 : 0.25;
+                audio.volume = 0; // กดเสียงเป็น 0 ไว้ชั่วคราว
+                
+                loadSong(currentSongIndex, true);
+                
+                // ไล่ระดับเสียงขึ้นภายใน 2 วินาที (2000ms)
+                let currentFadeVol = 0;
+                const fadeSteps = 20;
+                const fadeDuration = 2000;
+                const stepTime = fadeDuration / fadeSteps;
+                const volStep = targetVolume / fadeSteps;
+
+                if (fadeInterval) clearInterval(fadeInterval);
+                fadeInterval = setInterval(() => {
+                    currentFadeVol += volStep;
+                    if (currentFadeVol >= targetVolume) {
+                        currentFadeVol = targetVolume;
+                        clearInterval(fadeInterval);
+                    }
+                    audio.volume = currentFadeVol;
+                }, stepTime);
+
             }, 300);
             
-            // ส่งค่า false เพื่อบอกให้ speak() ทำงานแบบอัตโนมัติ โดยไม่ให้เล่นเสียง Normal Click
             setTimeout(() => speak(false), 900);
         }
 
-        // ตรวจสอบโปรโตคอลก่อนลงทะเบียน Service Worker เพื่อป้องกัน Error (':') is not supported
         if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.protocol === 'http:')) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js').catch(err => console.log('Service Worker error:', err));
             });
         }
 
-        // ระบบป้องกันเบื้องต้น
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('dragstart', e => { if (e.target.nodeName === 'IMG') e.preventDefault(); });
 
-        // =========================================================
-        // ===== ระบบ Pop-up Credit Modal =====
-        // =========================================================
         function openCredit() {
             const modal = document.getElementById('credit-modal');
             const content = document.getElementById('credit-content');
-            
-            // เรียกใช้เสียงคลิกแบบปกติ
             playNormalClick();
-
             modal.classList.remove('opacity-0', 'pointer-events-none');
             content.classList.remove('scale-95');
             content.classList.add('scale-100');
         }
 
         function closeCredit(e) {
-            // เช็คให้แน่ใจว่าคลิกที่ฉากหลังสีดำ หรือคลิกที่ปุ่มกากบาทเท่านั้น
             if (e && e.target.id !== 'credit-modal' && e.target.id !== 'close-modal-btn') return;
-            
-            // เรียกใช้เสียงคลิกแบบปกติ
             playNormalClick();
-            
             const modal = document.getElementById('credit-modal');
             const content = document.getElementById('credit-content');
-            
             modal.classList.add('opacity-0', 'pointer-events-none');
             content.classList.remove('scale-100');
             content.classList.add('scale-95');
