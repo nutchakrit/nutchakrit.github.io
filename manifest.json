@@ -1,7 +1,7 @@
 {
-  "name": "NCK Server Portal | Crayon Cloud",
-  "short_name": "NCK Portal",
-  "description": "Portal เข้าสู่ NCK Server สำหรับนายท่าน ✨",
+  "name": "NecoMaid | Crayon Cloud",
+  "short_name": "NecoMaid",
+  "description": "An application for daily use",
   "id": "/?source=pwa",
   "start_url": "./index.html",
   "display": "standalone",
