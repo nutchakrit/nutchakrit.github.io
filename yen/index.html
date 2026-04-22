@@ -328,9 +328,21 @@
         async function init() {
             try {
                 const r = await fetch(API_URL), d = await r.json(); currentRate = d.rates.THB;
+                // ✅ บันทึกเรทล่าสุดไว้เผื่อใช้ตอนออฟไลน์
+                localStorage.setItem('necomaid_cached_rate', currentRate);
                 rateDisplay.classList.remove('animate-pulse');
                 rateDisplay.innerHTML = `เรทล่าสุด: 100 เยน ≈ <span class="font-black">${(currentRate * 100).toFixed(2)} บาท</span>`;
-            } catch (e) { rateDisplay.innerHTML = `<span class="text-red-400">⚠️ ดึงเรทล้มเหลว</span>`; }
+            } catch (e) {
+                // ✅ ออฟไลน์ — ดึงเรทเก่าจาก localStorage มาใช้แทน
+                const cachedRate = parseFloat(localStorage.getItem('necomaid_cached_rate'));
+                rateDisplay.classList.remove('animate-pulse');
+                if (cachedRate > 0) {
+                    currentRate = cachedRate;
+                    rateDisplay.innerHTML = `<span class="text-yellow-300">📴 ออฟไลน์ · เรทเก่า: 100 เยน ≈ <span class="font-black">${(currentRate * 100).toFixed(2)} บาท</span></span>`;
+                } else {
+                    rateDisplay.innerHTML = `<span class="text-red-400">⚠️ ออฟไลน์และไม่มีเรทสำรอง กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนเจ้าค่ะ</span>`;
+                }
+            }
 
             const savedStr = localStorage.getItem('necomaid_calc_data');
             if (savedStr) {
