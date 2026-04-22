@@ -3,14 +3,13 @@
  * ออกแบบมาเพื่อรองรับการใช้งาน Offline ในญี่ปุ่น 🇯🇵
  */
 
-const CACHE_NAME = 'necomaid-calc-v1.2';
+importScripts('./config.js');
 
 const urlsToCache = [
   './',
   './index.html',
+  './config.js',
   './manifest.json',
-  './unticked.png',
-  './ticked.png',
   './icon-192.png',
   './hatachi-no-koi.mp3',
   './Aoi-Sangosho.mp3',

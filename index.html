@@ -23,6 +23,7 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -178,7 +179,7 @@
                      class="h-full rounded-full transition-all duration-300"
                      style="width:0%;background:#7c6fea;"></div>
             </div>
-            <p id="loading-percent" class="text-[#a09ad0] text-xs font-bold tracking-widest">0 / 20</p>
+            <p id="loading-percent" class="text-[#a09ad0] text-xs font-bold tracking-widest">0 / 21</p>
         </div>
 
         <p class="text-[#a09ad0] text-[10px] z-10 tracking-wider">Crayon Cloud — NCK Server Portal</p>
@@ -206,11 +207,11 @@
                      onclick="enterPortal()"
                      style="transform:scale(1.22); transform-origin:center center; transition:transform 0.7s cubic-bezier(0.34,1.56,0.64,1);">
                     <div class="relative w-full flex items-center justify-center group-hover:scale-105 transition-transform duration-700 ease-out">
-                        <img src="MainCloud.png" alt="Portal Cloud" class="w-full h-auto cloud-blend cloud-pulse" draggable="false">
+                        <img src="MainCloud.png" alt="Portal Cloud" class="w-full h-auto cloud-blend cloud-pulse" draggable="false" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlZWVlZWUiLz48L3N2Zz4='">
                         <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <div class="relative w-[78%]">
-                                <img src="MainBanner.png" alt="NecoMaid Text" class="w-full h-auto" draggable="false">
-                                <span class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version 1.2.1</span>
+                                <img src="MainBanner.png" alt="NecoMaid Text" class="w-full h-auto" draggable="false" onerror="this.style.display='none'">
+                                <span id="version-display" class="absolute bottom-[32%] right-[15%] -rotate-[9deg] text-[8px] md:text-[10px] font-black text-[#9793FF] opacity-90 drop-shadow-sm pointer-events-none tracking-wide">Version ...</span>
                             </div>
                         </div>
                         <div id="click-hint" class="absolute inset-0 flex items-end justify-center pointer-events-none pb-[12%]">
@@ -221,7 +222,7 @@
                         </div>
                         <div id="splash-wrap" class="absolute pointer-events-none"
                              style="top:-20%; right:-5%; width:114%;">
-                            <img src="MainSplash.png" alt="ようこそ!" class="w-full h-auto drop-shadow-md" draggable="false">
+                            <img src="MainSplash.png" alt="ようこそ!" class="w-full h-auto drop-shadow-md" draggable="false" onerror="this.style.display='none'">
                         </div>
                     </div>
                 </div>
@@ -239,13 +240,13 @@
             <div class="absolute -bottom-[5.5rem] left-1/2 -translate-x-1/2 w-[160px] h-[70px]
                         opacity-0 group-hover:opacity-100 group-hover:translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center justify-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false" onerror="this.style.display='none'">
                 <span class="relative z-10 text-[10px] font-black tooltip-text text-center leading-tight mt-3">
                     แอปคำนวณ<br>เรทเงินเยน
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 group-hover:-rotate-3 transition-transform duration-300 flex items-center justify-center">
-                <img src="Cloud1.png" alt="Yen Cloud" class="w-full h-auto cloud-blend" draggable="false">
+                <img src="Cloud1.png" alt="Yen Cloud" class="w-full h-auto cloud-blend" draggable="false" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlZWVlZWUiLz48L3N2Zz4='">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span class="text-3xl md:text-4xl drop-shadow-md">💴</span>
                     <span class="text-xs md:text-sm font-black text-[#7c6fea] dark:text-[#c4b8f8] mt-1 tracking-wide">Yen Calc</span>
@@ -262,13 +263,13 @@
             <div class="absolute -bottom-[5.5rem] left-1/2 -translate-x-1/2 w-[160px] h-[70px]
                         opacity-0 group-hover:opacity-100 group-hover:translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center justify-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false" onerror="this.style.display='none'">
                 <span class="relative z-10 text-[10px] font-black tooltip-text text-center leading-tight mt-3">
                     ฐานข้อมูล<br>โปเกมอน
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300 flex items-center justify-center">
-                <img src="Cloud2.png" alt="Pokemon Cloud" class="w-full h-auto cloud-blend" draggable="false">
+                <img src="Cloud2.png" alt="Pokemon Cloud" class="w-full h-auto cloud-blend" draggable="false" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlZWVlZWUiLz48L3N2Zz4='">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span class="text-3xl md:text-4xl drop-shadow-md">🔴</span>
                     <span class="text-xs md:text-sm font-black text-[#7c6fea] dark:text-[#c4b8f8] mt-1 tracking-wide">Pokédex</span>
@@ -284,13 +285,13 @@
             <div class="absolute -top-[4rem] left-1/2 -translate-x-1/2 w-[150px]
                         opacity-0 group-hover:opacity-100 group-hover:-translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute w-full h-auto cloud-blend drop-shadow-md" draggable="false">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute w-full h-auto cloud-blend drop-shadow-md" draggable="false" onerror="this.style.display='none'">
                 <span class="relative z-10 text-[9px] font-black tooltip-text text-center leading-tight py-2">
                     ยังไม่เปิด<br>ให้บริการนะ!
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                <img src="ComingSoon-Cloud.png" alt="Soon Cloud" class="w-full h-auto cloud-blend opacity-60" draggable="false">
+                <img src="ComingSoon-Cloud.png" alt="Soon Cloud" class="w-full h-auto cloud-blend opacity-60" draggable="false" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlZWVlZWUiLz48L3N2Zz4='">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none grayscale group-hover:grayscale-0 transition-all">
                     <span class="text-2xl md:text-3xl">🐾</span>
                     <span class="text-[10px] md:text-xs font-black text-slate-400 dark:text-[#7066b0] mt-1 tracking-widest uppercase">Coming Soon</span>
@@ -307,13 +308,13 @@
             <div class="absolute -bottom-[5rem] left-1/2 -translate-x-1/2 w-[140px] h-[60px]
                         opacity-0 group-hover:opacity-100 group-hover:translate-y-2
                         transition-all duration-300 pointer-events-none z-30 flex flex-col items-center justify-center">
-                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false">
+                <img src="On-Hover.png" alt="Tooltip" class="absolute inset-0 w-full h-full cloud-blend drop-shadow-md" draggable="false" onerror="this.style.display='none'">
                 <span class="relative z-10 text-[9px] font-black tooltip-text text-center leading-tight mt-2">
                     สลับโหมด<br>มืด/สว่าง
                 </span>
             </div>
             <div class="relative w-full group-hover:scale-110 transition-transform duration-300 flex items-center justify-center">
-                <img src="Darkmode-cloud.png" alt="Theme Cloud" class="w-full h-auto cloud-blend opacity-90" draggable="false">
+                <img src="Darkmode-cloud.png" alt="Theme Cloud" class="w-full h-auto cloud-blend opacity-90" draggable="false" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlZWVlZWUiLz48L3N2Zz4='">
                 <div class="absolute flex flex-col items-center justify-center pointer-events-none">
                     <span id="theme-icon" class="text-2xl drop-shadow-sm transition-transform">☀️</span>
                 </div>
@@ -378,7 +379,7 @@
         <span class="opacity-80 flex items-center gap-1">
             <img src="my-copyright.png" alt="©" 
                  class="h-2.5 md:h-3 w-auto inline-block cursor-pointer hover:scale-125 transition-transform pointer-events-auto" 
-                 draggable="false" onclick="openCredit()"> 
+                 draggable="false" onclick="openCredit()" onerror="this.style.display='none'"> 
             <span class="pointer-events-none">2026 Nutchakrit Tuntivanitchphong. All rights reserved.</span>
         </span>
     </div>
@@ -390,7 +391,7 @@
         <div id="credit-content" 
              class="relative w-[90%] md:w-[650px] max-w-full transform scale-95 transition-transform duration-300 flex items-center justify-center">
             
-            <img src="Credit.png" alt="Credit Background" class="w-full h-auto drop-shadow-2xl" draggable="false">
+            <img src="Credit.png" alt="Credit Background" class="w-full h-auto drop-shadow-2xl" draggable="false" onerror="this.style.display='none'">
 
             <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 md:p-14 text-center">
                 <button onclick="closeCredit(event)" id="close-modal-btn" class="absolute top-8 right-10 md:top-12 md:right-16 text-2xl md:text-3xl text-[#7c6fea] dark:text-[#c4b8f8] hover:scale-125 transition-transform outline-none leading-none drop-shadow-md">&times;</button>
@@ -424,6 +425,14 @@
     <audio id="sfx-normal-click" src="Normal-Mouse-Click.mp3" preload="auto"></audio>
 
     <script>
+        // ดึง Version จาก config.js มาแสดง
+        document.addEventListener('DOMContentLoaded', () => {
+            const versionEl = document.getElementById('version-display');
+            if (versionEl && typeof APP_VERSION !== 'undefined') {
+                versionEl.textContent = 'Version ' + APP_VERSION;
+            }
+        });
+
         const html = document.documentElement;
         const body = document.body;
         const themeIcon = document.getElementById('theme-icon');
@@ -728,13 +737,22 @@
             const loadingScreen = document.getElementById('loading-screen');
             const loadingBar    = document.getElementById('loading-bar');
             const loadingPct    = document.getElementById('loading-percent');
-            const TOTAL_FILES   = 20; // จำนวนไฟล์ใน urlsToCache ของ sw.js
+            const TOTAL_FILES   = 21; // จำนวนไฟล์ใน urlsToCache ของ sw.js (บวก config.js เป็น 21)
+
+            let failSafeTimeout; // ตัวแปรสำหรับ Timeout
 
             function hideLoader() {
+                if (failSafeTimeout) clearTimeout(failSafeTimeout);
                 loadingScreen.style.opacity = '0';
                 loadingScreen.style.pointerEvents = 'none';
                 setTimeout(() => { if (loadingScreen.parentNode) loadingScreen.remove(); }, 700);
             }
+
+            // ระบบป้องกันหน้าจอค้าง - บังคับปิดหน้าโหลดอัตโนมัติภายใน 5 วินาที ไม่ว่าจะเกิดอะไรขึ้น
+            failSafeTimeout = setTimeout(() => {
+                console.warn('Loading took too long. Forcing hide loader.');
+                hideLoader();
+            }, 5000);
 
             function updateProgress(loaded, total) {
                 const pct = Math.round((loaded / total) * 100);
@@ -759,13 +777,18 @@
                     .then(reg => {
                         // ถ้า SW active แล้วและไม่มีการอัปเดต → cache ครบแล้ว ผ่านได้เลย
                         if (reg.active && !reg.installing && !reg.waiting) {
-                            caches.open('nck-portal-v1.2.1').then(cache => {
+                            // ใช้ CACHE_NAME จาก config.js
+                            const cacheName = typeof CACHE_NAME !== 'undefined' ? CACHE_NAME : 'nck-portal-v1.2.5';
+                            caches.open(cacheName).then(cache => {
                                 cache.keys().then(keys => {
                                     if (keys.length >= TOTAL_FILES - 2) {
                                         updateProgress(TOTAL_FILES, TOTAL_FILES);
                                         setTimeout(hideLoader, 300);
+                                    } else {
+                                        // ถ้า cache ไม่ครบ (เช่น ตอนทำ Localhost) ก็ให้ปล่อยผ่านไปเลย ไม่ต้องรอ Message
+                                        updateProgress(keys.length, TOTAL_FILES);
+                                        setTimeout(hideLoader, 500);
                                     }
-                                    // ถ้า cache ยังไม่ครบ รอ message จาก SW
                                 });
                             });
                         }

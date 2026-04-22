@@ -1,8 +1,9 @@
-const CACHE_NAME = 'nck-portal-v1.2.1';
+importScripts('./config.js');
 
 const urlsToCache = [
   './',
   './index.html',
+  './config.js',
   './manifest.json',
   './MainCloud.png',
   './MainBanner.png',
