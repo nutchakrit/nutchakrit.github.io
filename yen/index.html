@@ -29,7 +29,7 @@
                 extend: {
                     fontFamily: { sans: ['Sarabun', 'sans-serif'] },
                     colors: {
-                        mainBrand: '#7c6fea', /* เปลี่ยนกลับเป็นสีม่วงหลักของ Portal */
+                        mainBrand: '#7c6fea', 
                         darkBg: '#0d0f1e',
                         darkCard: '#1e1a3a',
                     }
@@ -54,17 +54,18 @@
         .speech-bubble { position: relative; border-radius: 1.5rem; filter: drop-shadow(0 4px 10px rgba(124, 111, 234, 0.2)); transition: all 0.4s ease; }
         .speech-bubble:after { content: ''; position: absolute; bottom: 0; right: 25%; width: 0; height: 0; border: 12px solid transparent; border-bottom: 0; border-right: 0; margin-left: -6px; margin-bottom: -12px; transition: border-top-color 0.5s; }
         
-        /* แก้สีกล่องคำพูด NecoMaid ให้ตรงกับหน้า Portal */
         .light .speech-bubble { background: #ffffff; color: #7c6fea; border: 2px solid #d8d0f8; }
         .light .speech-bubble:after { border-top-color: #ffffff; }
         .dark .speech-bubble { background: #1e1a3a; color: #c4b8f8; border: 1.5px solid #4a3e9a; }
         .dark .speech-bubble:after { border-top-color: #1e1a3a; }
 
-        /* แก้สีตาราง Grid พื้นหลัง */
         .bg-grid { background-size: 40px 40px; background-image: linear-gradient(to right, rgba(124, 111, 234, 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(124, 111, 234, 0.05) 1px, transparent 1px); }
         
         .expand-panel { transition: max-height 0.5s ease, opacity 0.5s ease, padding 0.5s ease; max-height: 0; opacity: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; }
-        .expand-panel.open { max-height: 300px; opacity: 1; padding-top: 1.5rem; padding-bottom: 1.5rem; }
+        .expand-panel.open { max-height: 500px; opacity: 1; padding-top: 1.5rem; padding-bottom: 1.5rem; overflow-y: auto;} /* ปรับ max-height เผื่อรายการเปรียบเทียบเยอะ */
+        
+        /* สไตล์สำหรับแถวเปรียบเทียบที่ถูกสุด */
+        .best-value { border-color: #34d399 !important; background-color: rgba(52, 211, 153, 0.1) !important; }
     </style>
 </head>
 <body class="bg-blue-50 dark:bg-darkBg min-h-screen text-slate-800 dark:text-blue-100 font-sans p-4 md:p-8 flex justify-center items-start bg-grid transition-colors duration-500 pb-32 relative">
@@ -74,7 +75,7 @@
         🐛 อุ๊ย! ระบบขัดข้อง: <span id="error-toast-msg" class="font-normal font-mono text-[11px] block mt-1 opacity-90"></span>
     </div>
 
-    <div class="w-full max-w-2xl bg-white dark:bg-darkCard rounded-[2.5rem] shadow-2xl overflow-hidden mt-2 md:mt-6 border border-blue-100 dark:border-blue-900/30 transition-all duration-500">
+    <div class="w-full max-w-2xl bg-white dark:bg-darkCard rounded-[2.5rem] shadow-2xl overflow-hidden mt-2 md:mt-6 border border-blue-100 dark:border-blue-900/30 transition-all duration-500 relative z-10">
         
         <!-- Header -->
         <div class="bg-mainBrand dark:bg-indigo-950 p-6 text-white relative overflow-hidden transition-colors">
@@ -133,14 +134,27 @@
                 </div>
             </div>
 
-            <!-- Budget Tool -->
-            <div class="mt-4 text-center">
-                <button id="toggle-budget-btn" class="text-xs font-bold text-slate-400 hover:text-mainBrand dark:hover:text-blue-300 transition-colors flex items-center justify-center gap-1 mx-auto bg-transparent outline-none">
-                    <span class="text-base">⚙️</span> <span>เปิดโหมดจัดงบ (Advanced Tool)</span>
+            <!-- Toggle Tools -->
+            <div class="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4 border-t border-dashed border-blue-100 dark:border-blue-900/30 pt-4">
+                
+                <!-- Toggle Budget -->
+                <button id="toggle-budget-btn" class="text-xs font-bold text-slate-400 hover:text-mainBrand dark:hover:text-blue-300 transition-colors flex items-center justify-center gap-1 bg-transparent outline-none">
+                    <span class="text-base">⚙️</span> <span>เปิดโหมดจัดงบ (Budget)</span>
                 </button>
+
+                <div class="hidden sm:block w-px h-4 bg-blue-200 dark:bg-blue-800"></div>
+
+                <!-- Toggle Compare Tool (Tickbox Style) -->
+                <div id="toggle-compare-btn" class="flex items-center justify-center gap-2 cursor-pointer group select-none">
+                    <img src="../unticked.png" id="compare-panel-tick" alt="checkbox" class="w-5 h-5 object-contain transition-transform group-hover:scale-110" 
+                         onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2394a3b8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%224%22 ry=%224%22></rect></svg>'">
+                    <span class="text-xs font-bold text-slate-400 group-hover:text-mainBrand dark:group-hover:text-blue-300 transition-colors">⚖️ เปรียบเทียบราคาต่อหน่วย</span>
+                </div>
+
             </div>
 
-            <div id="budget-section" class="expand-panel bg-slate-50 dark:bg-blue-950/30 rounded-3xl border-2 border-dashed border-blue-200 dark:border-blue-900/50 px-6 mt-2 relative">
+            <!-- Budget Section -->
+            <div id="budget-section" class="expand-panel bg-slate-50 dark:bg-blue-950/30 rounded-3xl border-2 border-dashed border-blue-200 dark:border-blue-900/50 px-6 mt-4 relative">
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
                     <div class="flex items-center gap-2">
                         <span class="text-2xl">💼</span>
@@ -168,6 +182,44 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Compare Section -->
+            <div id="compare-section" class="expand-panel bg-slate-50 dark:bg-blue-950/30 rounded-3xl border-2 border-dashed border-emerald-200 dark:border-emerald-900/50 px-4 sm:px-6 mt-4 relative">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">⚖️</span>
+                        <h3 class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">เครื่องมือเปรียบเทียบความคุ้มค่า</h3>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="clear-compare-btn" class="bg-white dark:bg-darkCard text-red-500 border border-red-200 dark:border-red-800/50 text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-red-50 active:scale-95 transition-all shadow-sm flex items-center gap-1">
+                            <span>🗑️</span> <span id="clear-compare-text">ล้าง</span>
+                        </button>
+                        <button id="add-compare-row-btn" class="bg-white dark:bg-darkCard text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-emerald-50 active:scale-95 transition-all shadow-sm">
+                            + เพิ่มของเทียบ
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Headers for Compare -->
+                <div class="grid grid-cols-[auto_1fr_1fr_auto_24px] gap-2 px-2 mb-2">
+                    <div class="w-6"></div> <!-- Checkbox space -->
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">ราคา (¥)</div>
+                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">ปริมาณ</div>
+                    <div class="w-16 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right pr-1">ผลลัพธ์</div>
+                    <div></div> <!-- Delete btn space -->
+                </div>
+
+                <div id="compare-list" class="space-y-2 mb-4">
+                    <!-- Compare Rows will be generated here -->
+                </div>
+
+                <div class="flex justify-between items-center border-t border-emerald-100 dark:border-emerald-900/50 pt-3">
+                    <span class="text-[10px] text-slate-400 font-medium">* ระบบจะไฮไลท์สีเขียวให้ 👑 ตัวที่คุ้มที่สุดอัตโนมัติ</span>
+                    <button id="add-selected-main-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black px-4 py-2 rounded-xl active:scale-95 transition-all shadow-md flex items-center gap-1.5">
+                        <span>🛒</span> นำที่ติ๊กไว้ไปคิดเงิน
+                    </button>
+                </div>
+            </div>
             
         </div>
     </div>
@@ -179,8 +231,7 @@
                 เนียะ! ยินดีต้อนรับค่ะ
             </div>
             <div class="relative cursor-pointer group mr-2 mb-2" onclick="speak()">
-                <!-- 💡 แก้ Path ให้ดึงรูป Wave.png จากโฟลเดอร์หลัก จะได้มองเห็นตอนออฟไลน์ -->
-                <img src="../Wave.png" alt="NecoMaid" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 100 100\'><text y=\'50\' font-size=\'40\'>🐈</text></svg>'" class="w-24 h-auto md:w-36 lg:w-40 animate-float drop-shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:scale-110 transition-transform duration-500">
+                <img src="../Wave.png" alt="NecoMaid" onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%2250%22 font-size=%2240%22>🐈</text></svg>'" class="w-24 h-auto md:w-36 lg:w-40 animate-float drop-shadow-[0_10px_20px_rgba(0,0,0,0.2)] hover:scale-110 transition-transform duration-500">
                 <div class="absolute bottom-2 left-1/2 -translate-x-1/2 bg-mainBrand text-white text-[8px] font-black px-3 py-1 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-widest border border-white/20">NecoMaid</div>
             </div>
         </div>
@@ -224,7 +275,9 @@
         function evaluateMath(str) {
             try {
                 if (!str) return 0;
-                let cleanStr = str.toString().replace(/[^0-9+\-*/.]/g, '');
+                // 💡 NecoMaid Upgrade: รองรับการใช้ x หรือ X แทนการคูณด้วยเลยเจ้าค่ะ!
+                let preClean = str.toString().replace(/[xX]/g, '*');
+                let cleanStr = preClean.replace(/[^0-9+\-*/.]/g, '');
                 cleanStr = cleanStr.replace(/[+\-*/.]+$/, '');
                 if (!cleanStr) return 0;
                 
@@ -235,6 +288,30 @@
             }
         }
 
+        // ==========================================
+        // 🎨 Tickbox Config & SVG Fallbacks
+        // ==========================================
+        const TICK_IMG_PATH = '../ticked.png';
+        const UNTICK_IMG_PATH = '../unticked.png';
+        
+        // สังเกตการเข้ารหัสสี %23 แทน # ใน SVG แบบ Data URI
+        const SVG_FALLBACK_UNTICKED = "data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2394a3b8%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%224%22 ry=%224%22></rect></svg>";
+        const SVG_FALLBACK_TICKED_BRAND = "data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%237c6fea%22 stroke-width=%223%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%224%22 ry=%224%22 fill=%22%237c6fea%22 fill-opacity=%220.1%22></rect><polyline points=%229 11 12 14 22 4%22></polyline></svg>";
+        const SVG_FALLBACK_TICKED_EMERALD = "data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2310b981%22 stroke-width=%223%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%224%22 ry=%224%22 fill=%22%2310b981%22 fill-opacity=%220.1%22></rect><polyline points=%229 11 12 14 22 4%22></polyline></svg>";
+
+        function setTickboxImage(imgElement, isTicked, theme = 'brand') {
+            const fallbackTicked = theme === 'emerald' ? SVG_FALLBACK_TICKED_EMERALD : SVG_FALLBACK_TICKED_BRAND;
+            const targetSrc = isTicked ? TICK_IMG_PATH : UNTICK_IMG_PATH;
+            const targetFallback = isTicked ? fallbackTicked : SVG_FALLBACK_UNTICKED;
+            
+            imgElement.src = targetSrc;
+            imgElement.onerror = () => {
+                imgElement.onerror = null;
+                imgElement.src = targetFallback;
+            };
+        }
+
+
         const API_URL = "https://open.er-api.com/v6/latest/JPY";
         let currentRate = 0, focusedRowId = null, currentGlobalTotalThb = 0, currentGlobalTotalJpy = 0; 
         
@@ -243,6 +320,7 @@
         const totalJpyEl = document.getElementById('total-jpy'), totalThbEl = document.getElementById('total-thb');
         const walletContainer = document.getElementById('wallet-container'), walletTitle = document.getElementById('wallet-title'), emptyWalletTpl = document.getElementById('empty-wallet-template');
 
+        // Budget DOM
         const toggleBudgetBtn = document.getElementById('toggle-budget-btn');
         const budgetSection = document.getElementById('budget-section');
         const budgetInput = document.getElementById('budget-input');
@@ -251,6 +329,17 @@
         const budgetStatus = document.getElementById('budget-status');
         const budgetChange = document.getElementById('budget-change');
         let isBudgetOpen = false;
+
+        // Compare DOM
+        const toggleCompareBtn = document.getElementById('toggle-compare-btn');
+        const comparePanelTick = document.getElementById('compare-panel-tick');
+        const compareSection = document.getElementById('compare-section');
+        const compareList = document.getElementById('compare-list');
+        const addCompareRowBtn = document.getElementById('add-compare-row-btn');
+        const clearCompareBtn = document.getElementById('clear-compare-btn');
+        const clearCompareText = document.getElementById('clear-compare-text');
+        const addSelectedMainBtn = document.getElementById('add-selected-main-btn');
+        let isCompareOpen = false;
 
         const clearAllBtn = document.getElementById('clear-all-btn');
         const clearBtnText = document.getElementById('clear-btn-text');
@@ -280,20 +369,7 @@
                 inputsWrapper.innerHTML = '';
                 addNewRow(); 
                 calculateTotal(); 
-
-                const s = document.getElementById('maid-speech'); 
-                if (s) { 
-                    s.innerText = "ล้างกระเป๋าให้เรียบร้อยแล้วเจ้าค่ะ! ✨"; 
-                    s.classList.replace('opacity-0', 'opacity-100'); 
-                    s.classList.replace('scale-90', 'scale-100'); 
-                    s.classList.replace('translate-y-4', 'translate-y-0'); 
-                    clearTimeout(window.mT); 
-                    window.mT = setTimeout(() => { 
-                        s.classList.replace('opacity-100', 'opacity-0'); 
-                        s.classList.replace('scale-100', 'scale-90'); 
-                        s.classList.replace('translate-y-0', 'translate-y-4'); 
-                    }, 4000); 
-                }
+                maidSpeak("ล้างกระเป๋าให้เรียบร้อยแล้วเจ้าค่ะ! ✨");
             }
         }));
 
@@ -315,15 +391,23 @@
             document.querySelectorAll('.row-container').forEach(row => {
                 const input = row.querySelector('.jpy-input');
                 if (input) {
-                    rows.push({
-                        val: input.value,
-                        hidden: row.dataset.hidden === 'true',
-                        discount: row.dataset.discount || '0'
-                    });
+                    rows.push({ val: input.value, hidden: row.dataset.hidden === 'true', discount: row.dataset.discount || '0' });
                 }
             });
             const budgetData = { val: budgetInput.value, currency: budgetCurrency.value, isOpen: isBudgetOpen };
-            localStorage.setItem('necomaid_calc_data', JSON.stringify({ rows, budgetData }));
+            
+            // Save Compare Data
+            const compareRows = [];
+            document.querySelectorAll('.compare-row').forEach(row => {
+                compareRows.push({
+                    price: row.querySelector('.comp-price').value,
+                    qty: row.querySelector('.comp-qty').value,
+                    ticked: row.dataset.ticked === 'true'
+                });
+            });
+            const compareData = { isOpen: isCompareOpen, rows: compareRows };
+
+            localStorage.setItem('necomaid_calc_data', JSON.stringify({ rows, budgetData, compareData }));
         });
 
         async function init() {
@@ -348,14 +432,23 @@
                             toggleBudgetBtn.innerHTML = `<span class="text-base">⚙️</span> <span>ปิดโหมดจัดงบ</span>`;
                         }
                     }
+                    if (saved.compareData) {
+                        if (saved.compareData.isOpen) toggleComparePanel(true);
+                        if (saved.compareData.rows && saved.compareData.rows.length > 0) {
+                            saved.compareData.rows.forEach(r => addCompareRow(r.price, r.qty, r.ticked));
+                        } else { addCompareRow(); addCompareRow(); }
+                    } else { addCompareRow(); addCompareRow(); }
+
                     if (saved.rows && saved.rows.length > 0) {
                         saved.rows.forEach(r => addNewRow(r.val, r.hidden, r.discount || '0'));
                     } else { addNewRow(); }
-                } catch (err) { addNewRow(); }
-            } else { addNewRow(); }
+                } catch (err) { addNewRow(); addCompareRow(); addCompareRow(); }
+            } else { addNewRow(); addCompareRow(); addCompareRow(); }
 
             calculateTotal(); 
+            calculateCompare();
             if (html.classList.contains('dark')) themeIcon.innerText = '🌙'; else themeIcon.innerText = '☀️';
+            setTickboxImage(comparePanelTick, isCompareOpen, 'brand');
         }
 
         function toggleDarkMode() {
@@ -365,6 +458,9 @@
             localStorage.setItem('theme', next);
         }
 
+        // ==========================================
+        // 📊 Budget Tool Functions
+        // ==========================================
         toggleBudgetBtn.addEventListener('click', safeRun(() => {
             isBudgetOpen = !isBudgetOpen;
             if (isBudgetOpen) {
@@ -373,7 +469,7 @@
                 updateBudgetUI();
             } else {
                 budgetSection.classList.remove('open');
-                toggleBudgetBtn.innerHTML = `<span class="text-base">⚙️</span> <span>เปิดโหมดจัดงบ (Advanced Tool)</span>`;
+                toggleBudgetBtn.innerHTML = `<span class="text-base">⚙️</span> <span>เปิดโหมดจัดงบ (Budget)</span>`;
             }
             saveData(); 
         }));
@@ -406,27 +502,11 @@
             budgetProgress.style.width = `${Math.min(percent, 100)}%`;
 
             let colorClass = "", statusText = "";
-            if (percent <= 15) {
-                colorClass = "bg-emerald-400";
-                budgetStatus.className = "text-[11px] sm:text-xs font-black text-emerald-500";
-                statusText = `สบายกระเป๋า ซื้อได้อีกชิลๆ (${percent.toFixed(1)}%)`;
-            } else if (percent <= 30) {
-                colorClass = "bg-amber-400";
-                budgetStatus.className = "text-[11px] sm:text-xs font-black text-amber-500";
-                statusText = `กำลังดีเลยเจ้าค่ะ (${percent.toFixed(1)}%)`;
-            } else if (percent <= 50) {
-                colorClass = "bg-orange-500";
-                budgetStatus.className = "text-[11px] sm:text-xs font-black text-orange-500";
-                statusText = `ครึ่งทางแล้วนะ ระวังด้วยเจ้าค่ะ (${percent.toFixed(1)}%)`;
-            } else if (percent <= 100) {
-                colorClass = "bg-rose-500";
-                budgetStatus.className = "text-[11px] sm:text-xs font-black text-rose-500";
-                statusText = `เตือนภัย! งบใกล้หมดแล้ว (${percent.toFixed(1)}%)`;
-            } else {
-                colorClass = "bg-red-600 animate-pulse";
-                budgetStatus.className = "text-[11px] sm:text-xs font-black text-red-500 animate-pulse";
-                statusText = `🚨 เกิน Budget แล้วเจ้าค่ะ! (${percent.toFixed(1)}%)`;
-            }
+            if (percent <= 15) { colorClass = "bg-emerald-400"; budgetStatus.className = "text-[11px] sm:text-xs font-black text-emerald-500"; statusText = `สบายกระเป๋า ซื้อได้อีกชิลๆ (${percent.toFixed(1)}%)`; } 
+            else if (percent <= 30) { colorClass = "bg-amber-400"; budgetStatus.className = "text-[11px] sm:text-xs font-black text-amber-500"; statusText = `กำลังดีเลยเจ้าค่ะ (${percent.toFixed(1)}%)`; } 
+            else if (percent <= 50) { colorClass = "bg-orange-500"; budgetStatus.className = "text-[11px] sm:text-xs font-black text-orange-500"; statusText = `ครึ่งทางแล้วนะ ระวังด้วยเจ้าค่ะ (${percent.toFixed(1)}%)`; } 
+            else if (percent <= 100) { colorClass = "bg-rose-500"; budgetStatus.className = "text-[11px] sm:text-xs font-black text-rose-500"; statusText = `เตือนภัย! งบใกล้หมดแล้ว (${percent.toFixed(1)}%)`; } 
+            else { colorClass = "bg-red-600 animate-pulse"; budgetStatus.className = "text-[11px] sm:text-xs font-black text-red-500 animate-pulse"; statusText = `🚨 เกิน Budget แล้วเจ้าค่ะ! (${percent.toFixed(1)}%)`; }
 
             budgetProgress.className = `h-3 rounded-full transition-all duration-700 ${colorClass}`;
             budgetStatus.innerHTML = statusText;
@@ -440,6 +520,221 @@
             }
         });
 
+        // ==========================================
+        // ⚖️ Unit Price Comparison Tool
+        // ==========================================
+        function toggleComparePanel(forceState = null) {
+            isCompareOpen = forceState !== null ? forceState : !isCompareOpen;
+            if (isCompareOpen) {
+                compareSection.classList.add('open');
+                setTickboxImage(comparePanelTick, true, 'brand');
+            } else {
+                compareSection.classList.remove('open');
+                setTickboxImage(comparePanelTick, false, 'brand');
+            }
+            saveData();
+        }
+        
+        toggleCompareBtn.addEventListener('click', safeRun(() => toggleComparePanel()));
+
+        const addCompareRow = safeRun((price = '', qty = '', ticked = false) => {
+            const rowId = 'comp-' + Date.now().toString() + Math.floor(Math.random()*1000);
+            const row = document.createElement('div');
+            row.className = 'compare-row grid grid-cols-[auto_1fr_1fr_auto_24px] gap-1 sm:gap-2 items-center bg-white dark:bg-darkCard p-2 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 transition-all';
+            row.dataset.rowId = rowId;
+            row.dataset.ticked = ticked ? "true" : "false";
+
+            row.innerHTML = `
+                <div class="w-6 flex items-center justify-center cursor-pointer group comp-tick-btn">
+                    <img src="${ticked ? TICK_IMG_PATH : UNTICK_IMG_PATH}" class="comp-tick-img w-5 h-5 object-contain transition-transform group-hover:scale-110" 
+                         onerror="this.onerror=null; this.src='${ticked ? SVG_FALLBACK_TICKED_EMERALD : SVG_FALLBACK_UNTICKED}'">
+                </div>
+                <input type="text" inputmode="decimal" value="${price}" placeholder="ราคา (¥)" class="comp-price w-full bg-slate-50 dark:bg-indigo-950/30 border border-slate-200 dark:border-blue-800 rounded-lg px-2 py-1.5 text-sm font-black text-center focus:outline-none focus:border-emerald-400">
+                <input type="text" inputmode="decimal" value="${qty}" placeholder="ปริมาณ" class="comp-qty w-full bg-slate-50 dark:bg-indigo-950/30 border border-slate-200 dark:border-blue-800 rounded-lg px-2 py-1.5 text-sm font-black text-center focus:outline-none focus:border-emerald-400">
+                <div class="w-14 sm:w-16 text-right flex flex-col justify-center relative pr-1">
+                    <div class="comp-result text-xs font-black text-slate-700 dark:text-emerald-300">-</div>
+                    <div class="comp-crown absolute -top-3 -right-2 text-lg opacity-0 transition-opacity pointer-events-none">👑</div>
+                </div>
+                <button class="comp-del-btn w-6 h-6 flex items-center justify-center rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors" title="ลบรายการ">✕</button>
+            `;
+
+            const priceInput = row.querySelector('.comp-price');
+            const qtyInput = row.querySelector('.comp-qty');
+            const tickBtn = row.querySelector('.comp-tick-btn');
+            const tickImg = row.querySelector('.comp-tick-img');
+            const delBtn = row.querySelector('.comp-del-btn');
+
+            const recalc = () => { calculateCompare(); saveData(); };
+            priceInput.addEventListener('input', recalc);
+            qtyInput.addEventListener('input', recalc);
+
+            // Setup Keyboard logic (Ctrl+Enter / Mobile Enter Navigation)
+            const handleKeyDown = (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    e.preventDefault();
+                    addCompareRow();
+                    // Focus the price input of the newly added row
+                    const allNewPrices = document.querySelectorAll('.comp-price');
+                    if (allNewPrices.length > 0) allNewPrices[allNewPrices.length - 1].focus();
+                } else if (e.ctrlKey && (e.key === 'Delete' || e.key === 'Backspace')) {
+                    e.preventDefault();
+                    delBtn.click();
+                    setTimeout(() => { 
+                        const rem = document.querySelectorAll('.comp-price'); 
+                        if (rem.length > 0) rem[rem.length - 1].focus(); 
+                    }, 10);
+                } else if (e.key === 'Enter') {
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    if (isMobile) {
+                        e.preventDefault();
+                        // Find the next input to jump to
+                        const allInputs = Array.from(document.querySelectorAll('.comp-price, .comp-qty'));
+                        const currentIndex = allInputs.indexOf(e.target);
+                        if (currentIndex > -1 && currentIndex < allInputs.length - 1) {
+                            allInputs[currentIndex + 1].focus();
+                        } else if (currentIndex === allInputs.length - 1) {
+                            e.target.blur(); // Dismiss keyboard if it's the very last input
+                        }
+                    }
+                }
+            };
+            priceInput.addEventListener('keydown', safeRun(handleKeyDown));
+            qtyInput.addEventListener('keydown', safeRun(handleKeyDown));
+
+            // Setup tick logic
+            tickBtn.addEventListener('click', () => {
+                const isTicked = row.dataset.ticked === 'true';
+                row.dataset.ticked = !isTicked;
+                setTickboxImage(tickImg, !isTicked, 'emerald');
+                saveData();
+            });
+
+            // Setup delete logic
+            delBtn.addEventListener('click', safeRun(() => {
+                if (document.querySelectorAll('.compare-row').length > 1) {
+                    row.remove();
+                    calculateCompare();
+                    saveData();
+                } else {
+                    priceInput.value = '';
+                    qtyInput.value = '';
+                    row.dataset.ticked = 'false';
+                    setTickboxImage(tickImg, false, 'emerald');
+                    calculateCompare();
+                    saveData();
+                }
+            }));
+
+            compareList.appendChild(row);
+            saveData();
+        });
+
+        addCompareRowBtn.addEventListener('click', safeRun(() => addCompareRow()));
+
+        let clearCompareConfirmTimer = null;
+        let isClearCompareConfirm = false;
+        const defaultClearCompareClass = "bg-white dark:bg-darkCard text-red-500 border border-red-200 dark:border-red-800/50 text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-red-50 active:scale-95 transition-all shadow-sm flex items-center gap-1";
+        const confirmClearCompareClass = "bg-red-500 text-white border border-red-600 text-[10px] font-black px-3 py-1.5 rounded-xl active:scale-95 transition-all shadow-md flex items-center gap-1 animate-pulse";
+
+        clearCompareBtn.addEventListener('click', safeRun(() => {
+            if (!isClearCompareConfirm) {
+                isClearCompareConfirm = true;
+                clearCompareText.innerText = "แน่ใจนะ?";
+                clearCompareBtn.className = confirmClearCompareClass;
+                clearCompareConfirmTimer = setTimeout(() => {
+                    isClearCompareConfirm = false;
+                    clearCompareText.innerText = "ล้าง";
+                    clearCompareBtn.className = defaultClearCompareClass;
+                }, 2000);
+            } else {
+                clearTimeout(clearCompareConfirmTimer);
+                isClearCompareConfirm = false;
+                clearCompareText.innerText = "ล้าง";
+                clearCompareBtn.className = defaultClearCompareClass;
+
+                compareList.innerHTML = ''; 
+                addCompareRow(); 
+                addCompareRow(); 
+                calculateCompare();
+                saveData();
+                maidSpeak("ล้างแผงเปรียบเทียบราคาให้หมดจดแล้วเจ้าค่ะ! 🧼✨");
+            }
+        }));
+
+        const calculateCompare = safeRun(() => {
+            const rows = document.querySelectorAll('.compare-row');
+            let minUnitPrice = Infinity;
+            let bestRows = [];
+
+            // Calculate unit price for all
+            rows.forEach(row => {
+                const pStr = row.querySelector('.comp-price').value;
+                const qStr = row.querySelector('.comp-qty').value;
+                const p = evaluateMath(pStr);
+                const q = evaluateMath(qStr);
+                const resEl = row.querySelector('.comp-result');
+                
+                row.classList.remove('best-value');
+                row.querySelector('.comp-crown').classList.remove('opacity-100');
+                row.dataset.unitPrice = "0";
+
+                if (p > 0 && q > 0) {
+                    const unitPrice = p / q;
+                    row.dataset.unitPrice = unitPrice.toString();
+                    
+                    // Format display (if too small, show decimals, else int)
+                    let displayStr = unitPrice < 1 ? unitPrice.toFixed(2) : unitPrice.toFixed(1);
+                    resEl.innerText = displayStr + " ¥/u";
+
+                    if (unitPrice < minUnitPrice) {
+                        minUnitPrice = unitPrice;
+                        bestRows = [row];
+                    } else if (unitPrice === minUnitPrice) {
+                        bestRows.push(row);
+                    }
+                } else {
+                    resEl.innerText = "-";
+                }
+            });
+
+            // Highlight the best ones (only if valid comparison > 1 item exists conceptually, but we can just highlight any valid min)
+            if (minUnitPrice !== Infinity && minUnitPrice > 0) {
+                bestRows.forEach(row => {
+                    row.classList.add('best-value');
+                    row.querySelector('.comp-crown').classList.add('opacity-100');
+                });
+            }
+        });
+
+        addSelectedMainBtn.addEventListener('click', safeRun(() => {
+            const rows = document.querySelectorAll('.compare-row');
+            let addedCount = 0;
+            rows.forEach(row => {
+                if (row.dataset.ticked === 'true') {
+                    const p = row.querySelector('.comp-price').value;
+                    if (evaluateMath(p) > 0) {
+                        addNewRow(p);
+                        addedCount++;
+                        // Untick after adding
+                        row.dataset.ticked = 'false';
+                        setTickboxImage(row.querySelector('.comp-tick-img'), false, 'emerald');
+                    }
+                }
+            });
+            
+            if(addedCount > 0) {
+                calculateTotal();
+                saveData();
+                maidSpeak(`หยิบของที่เลือกลงตะกร้าให้ ${addedCount} รายการแล้วเจ้าค่ะ! 🛒✨`);
+            } else {
+                maidSpeak(`ยังไม่ได้ติ๊กเลือกสินค้า หรือไม่ได้ใส่ราคาเลยนะเจ้าคะ 💦`);
+            }
+        }));
+
+
+        // ==========================================
+        // 💵 Core Wallet / Stack Animation Functions
+        // ==========================================
         const createMoneyStack = safeRun((denom, countInStack, delayIndex) => {
             const wrapper = document.createElement('div');
             wrapper.className = 'relative animate-pop group cursor-default transition-transform transform hover:-translate-y-2 hover:scale-105';
@@ -656,26 +951,32 @@
             saveData(); 
         });
 
-        function runNecoMaidTests() {
-            console.log("🛠️ NecoMaid Self-Diagnostics Running...");
-            try {
-                if (typeof calculateTotal !== 'function') throw new Error("Missing calculateTotal function");
-                if (typeof updateBudgetUI !== 'function') throw new Error("Missing updateBudgetUI function");
-                
-                if (evaluateMath("500+200") !== 700) throw new Error("Math Evaluator fails on addition.");
-                if (evaluateMath("1000-") !== 1000) throw new Error("Math Evaluator fails on trailing operators.");
-                
-                console.log("✅ All logic tests passed! NecoMaid is bulletproof.");
-            } catch(e) {
-                console.error("❌ Test Failed:", e);
-                showErrorToast("การทดสอบระบบล้มเหลว: " + e.message);
+        // ==========================================
+        // 🐈 NecoMaid Mascot Logic
+        // ==========================================
+        function maidSpeak(text) {
+            const s = document.getElementById('maid-speech'); 
+            if (s) { 
+                s.innerText = text; 
+                s.classList.replace('opacity-0', 'opacity-100'); 
+                s.classList.replace('scale-90', 'scale-100'); 
+                s.classList.replace('translate-y-4', 'translate-y-0'); 
+                clearTimeout(window.mT); 
+                window.mT = setTimeout(() => { 
+                    s.classList.replace('opacity-100', 'opacity-0'); 
+                    s.classList.replace('scale-100', 'scale-90'); 
+                    s.classList.replace('translate-y-0', 'translate-y-4'); 
+                }, 6000); 
             }
         }
 
-        const quotes = ["หนูแก้ตรรกะให้พิมพ์บวกเลข 500+200 ได้แล้วนะเจ้าคะ! 🧮", "ปิดแผงจัดงบลงไป ก็ยังคำนวณให้ตลอดเวลาเจ้าค่ะ ✨", "ถึงเน็ตจะหลุด ดึงเรทไม่ได้ ก็ยังคำนวณงบเยนได้นะเจ้าคะ!", "ระบบใส่เกราะดักบัคให้แล้ว มีอะไรฟ้องบนจอเลยเจ้าค่ะ! 🛡️"];
-        function speak() {
-            const s = document.getElementById('maid-speech'); if (s) { s.innerText = quotes[Math.floor(Math.random() * quotes.length)]; s.classList.replace('opacity-0', 'opacity-100'); s.classList.replace('scale-90', 'scale-100'); s.classList.replace('translate-y-4', 'translate-y-0'); clearTimeout(window.mT); window.mT = setTimeout(() => { s.classList.replace('opacity-100', 'opacity-0'); s.classList.replace('scale-100', 'scale-90'); s.classList.replace('translate-y-0', 'translate-y-4'); }, 6000); }
-        }
+        const quotes = [
+            "มี Tickbox ให้แล้วนะเจ้าคะ เอาไว้กดเปรียบเทียบราคาได้เลย! ✅", 
+            "ระบบเทียบราคาจะสวมมงกุฎ 👑 ให้ตัวที่คุ้มที่สุดอัตโนมัติเลยค่ะ!", 
+            "เลือกของที่ถูกใจในแผงเทียบราคา แล้วกดโยนลงตะกร้าได้เลยนะเจ้าคะ!", 
+            "หนูรอรูป unticked.png กับ ticked.png ของนายท่านอยู่นะคะ ✨"
+        ];
+        function speak() { maidSpeak(quotes[Math.floor(Math.random() * quotes.length)]); }
 
         // ===== PWA Service Worker Registration =====
         if ('serviceWorker' in navigator) {
@@ -685,7 +986,7 @@
         }
 
         addRowBtn.addEventListener('click', safeRun(() => addNewRow())); 
-        init().then(() => runNecoMaidTests()); 
+        init(); 
         setTimeout(speak, 1500);
 
     </script>
