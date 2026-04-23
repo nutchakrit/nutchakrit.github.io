@@ -21,6 +21,7 @@ const urlsToCache = [
   './BookEndBossa.mp3',
   './suki-no-oto.mp3',
   './anata-no-koibito.mp3',
+  './suki-cho-ver.mp3',
   './Wallpaper-Light.webp',
   './Wallpaper-Dark.webp'
 ];

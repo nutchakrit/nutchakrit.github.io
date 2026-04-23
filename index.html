@@ -52,8 +52,8 @@
             opacity: 0;
         }
 
-        .theme-ready .bg-light { opacity: 1; transition: opacity 1s ease-in-out; }
-        .theme-ready .bg-dark { opacity: 0; transition: opacity 1s ease-in-out; }
+        .theme-ready .bg-light { opacity: 1; transition: opacity 1.2s ease-in-out; }
+        .theme-ready .bg-dark { opacity: 0; transition: opacity 1.2s ease-in-out; }
         html.dark.theme-ready .bg-light { opacity: 0; }
         html.dark.theme-ready .bg-dark { opacity: 1; }
 
@@ -70,86 +70,157 @@
         
         body {
             -webkit-font-smoothing: antialiased;
-            background-color: #f0f4ff;
-            transition: background-color 1s ease-in-out;
+            background-color: #eef1ff;
+            transition: background-color 1.2s ease-in-out;
         }
         
-        body.dark-active { background-color: #0d0f1e; }
+        body.dark-active { background-color: #0c0e1c; }
 
+        /* ===== Stars ===== */
         .stars {
             background-image: 
-                radial-gradient(1.5px 1.5px at 8% 12%, #fff, transparent),
-                radial-gradient(1px 1px at 22% 35%, #ccd6ff, transparent),
-                radial-gradient(2px 2px at 38% 8%, #fff, transparent),
-                radial-gradient(1px 1px at 55% 22%, #e0d8ff, transparent),
-                radial-gradient(1.5px 1.5px at 70% 15%, #fff, transparent),
-                radial-gradient(1px 1px at 88% 30%, #ccd6ff, transparent),
-                radial-gradient(1.5px 1.5px at 15% 65%, #fff, transparent),
-                radial-gradient(2px 2px at 30% 80%, #e8e0ff, transparent),
-                radial-gradient(1px 1px at 78% 72%, #fff, transparent),
-                radial-gradient(1.5px 1.5px at 92% 55%, #ccd6ff, transparent),
-                radial-gradient(1px 1px at 45% 90%, #fff, transparent),
-                radial-gradient(2px 2px at 62% 48%, #e0d8ff, transparent);
+                radial-gradient(1.5px 1.5px at 8% 12%, rgba(255,255,255,0.9), transparent),
+                radial-gradient(1px 1px at 22% 35%, rgba(200,210,255,0.8), transparent),
+                radial-gradient(2px 2px at 38% 8%, rgba(255,255,255,0.85), transparent),
+                radial-gradient(1px 1px at 55% 22%, rgba(224,216,255,0.9), transparent),
+                radial-gradient(1.5px 1.5px at 70% 15%, rgba(255,255,255,0.8), transparent),
+                radial-gradient(1px 1px at 88% 30%, rgba(200,210,255,0.85), transparent),
+                radial-gradient(1.5px 1.5px at 15% 65%, rgba(255,255,255,0.9), transparent),
+                radial-gradient(2px 2px at 30% 80%, rgba(232,224,255,0.8), transparent),
+                radial-gradient(1px 1px at 78% 72%, rgba(255,255,255,0.85), transparent),
+                radial-gradient(1.5px 1.5px at 92% 55%, rgba(200,210,255,0.9), transparent),
+                radial-gradient(1px 1px at 45% 90%, rgba(255,255,255,0.75), transparent),
+                radial-gradient(2px 2px at 62% 48%, rgba(224,216,255,0.85), transparent),
+                radial-gradient(1px 1px at 5% 45%, rgba(255,255,255,0.7), transparent),
+                radial-gradient(1.5px 1.5px at 96% 80%, rgba(200,210,255,0.8), transparent),
+                radial-gradient(1px 1px at 50% 60%, rgba(255,255,255,0.6), transparent);
             background-size: 100% 100%;
-            animation: twinkle 4s ease-in-out infinite alternate;
+            animation: twinkle 5s ease-in-out infinite alternate;
         }
-        @keyframes twinkle { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+        @keyframes twinkle { 
+            0% { opacity: 0.5; } 
+            100% { opacity: 1; } 
+        }
 
-        @keyframes float      { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-15px);} }
-        @keyframes float-slow { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-10px);} }
-        @keyframes float-fast { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-20px);} }
-        .animate-float      { animation: float      6s ease-in-out infinite; }
-        .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
-        .animate-float-fast { animation: float-fast 5s ease-in-out infinite; }
+        /* ===== Float animations ===== */
+        @keyframes float      { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-12px);} }
+        @keyframes float-slow { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-8px);} }
+        @keyframes float-fast { 0%,100%{transform:translateY(0px);}    50%{transform:translateY(-16px);} }
+        .animate-float      { animation: float      7s ease-in-out infinite; }
+        .animate-float-slow { animation: float-slow 9s ease-in-out infinite; }
+        .animate-float-fast { animation: float-fast 5.5s ease-in-out infinite; }
 
-        .tooltip-text { color: #7c6fea; }
+        .tooltip-text { color: #6b5fe0; }
         .dark .tooltip-text { color: #c4b8f8; }
 
         .cloud-blend {
             mix-blend-mode: multiply;
-            filter: drop-shadow(0 10px 30px rgba(140, 120, 220, 0.25));
+            filter: drop-shadow(0 8px 24px rgba(124, 100, 210, 0.2));
+            transition: filter 0.4s ease;
         }
         .dark .cloud-blend {
             mix-blend-mode: screen;
-            filter: drop-shadow(0 10px 30px rgba(140, 120, 220, 0.4));
+            filter: drop-shadow(0 8px 24px rgba(160, 140, 240, 0.35));
         }
 
-        .watermark { color: #a09ad0; }
-        .dark .watermark { color: #5a5480; }
+        .watermark { color: #b0aad8; }
+        .dark .watermark { color: #4a4470; }
 
-        .cloud-pulse { animation: osu-pulse 2s ease-in-out infinite; }
+        /* ===== Main cloud pulse ===== */
+        .cloud-pulse { animation: osu-pulse 3s ease-in-out infinite; }
         @keyframes osu-pulse {
-            0%,100% { filter: drop-shadow(0 0 18px rgba(124,111,234,0.35)); }
-            50%      { filter: drop-shadow(0 0 40px rgba(124,111,234,0.75)); }
+            0%,100% { filter: drop-shadow(0 0 16px rgba(124,111,234,0.25)) drop-shadow(0 4px 20px rgba(124,111,234,0.15)); }
+            50%      { filter: drop-shadow(0 0 35px rgba(124,111,234,0.6)) drop-shadow(0 4px 30px rgba(124,111,234,0.3)); }
         }
         .cloud-pulse.entered { animation: none; filter: none; }
 
+        /* ===== Click ripple ===== */
         .osu-ripple {
             position: fixed;
             border-radius: 50%;
             pointer-events: none;
             z-index: 999;
             transform: translate(-50%, -50%) scale(0);
-            background: radial-gradient(circle, rgba(180,160,255,0.45) 0%, transparent 70%);
-            animation: osu-burst 0.7s ease-out forwards;
+            background: radial-gradient(circle, rgba(180,160,255,0.35) 0%, transparent 70%);
+            animation: osu-burst 0.65s ease-out forwards;
         }
-        @keyframes osu-burst { to { transform: translate(-50%, -50%) scale(6); opacity: 0; } }
+        @keyframes osu-burst { to { transform: translate(-50%, -50%) scale(5); opacity: 0; } }
 
-        :root { --slider-bg: #d8d0f8; --slider-fill: #7c6fea; }
-        .dark { --slider-bg: #4a3e9a; --slider-fill: #c4b8f8; }
+        /* ===== Sliders ===== */
+        :root { --slider-bg: #ddd6f8; --slider-fill: #7c6fea; }
+        .dark { --slider-bg: #3d3480; --slider-fill: #b8adfa; }
 
         .custom-slider {
             -webkit-appearance: none; appearance: none;
-            height: 6px; border-radius: 3px;
+            height: 3px; border-radius: 999px;
             background: var(--slider-bg);
             outline: none; cursor: pointer;
+            transition: height 0.2s ease;
         }
+        .custom-slider:hover { height: 5px; }
         .custom-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 12px; height: 12px;
+            -webkit-appearance: none; width: 11px; height: 11px;
             border-radius: 50%; background: var(--slider-fill);
-            box-shadow: 0 0 5px rgba(124,111,234,0.6);
+            box-shadow: 0 0 6px rgba(124,111,234,0.5);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: pointer;
         }
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+            box-shadow: 0 0 10px rgba(124,111,234,0.7);
+        }
+
+        /* ===== Marquee ===== */
         @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+
+        /* ===== Glass panel utility ===== */
+        .glass-light {
+            background: rgba(255,255,255,0.55);
+            backdrop-filter: blur(16px) saturate(1.4);
+            -webkit-backdrop-filter: blur(16px) saturate(1.4);
+            border: 1px solid rgba(200,190,255,0.5);
+        }
+        .dark .glass-light, .dark.glass-light {
+            background: rgba(22,18,52,0.65);
+            border: 1px solid rgba(100,90,180,0.35);
+        }
+
+        /* ===== Music player ===== */
+        #music-player {
+            border-radius: 18px;
+            box-shadow: 0 4px 24px rgba(100,80,200,0.12), 0 1px 4px rgba(100,80,200,0.08);
+            transition: box-shadow 0.3s ease;
+        }
+        #music-player:hover {
+            box-shadow: 0 6px 32px rgba(100,80,200,0.2), 0 2px 8px rgba(100,80,200,0.1);
+        }
+
+        /* ===== Speech box ===== */
+        #maid-speech-box {
+            box-shadow: 0 8px 32px rgba(100,80,200,0.15), 0 2px 8px rgba(100,80,200,0.08);
+        }
+
+        /* ===== Loading screen ===== */
+        #loading-screen {
+            background: linear-gradient(145deg, #eef1ff 0%, #e8e0ff 50%, #f0eaff 100%);
+        }
+        html.dark #loading-screen {
+            background: linear-gradient(145deg, #0c0e1c 0%, #100e28 50%, #0e0c20 100%) !important;
+        }
+
+        /* ===== Entrance animation ===== */
+        @keyframes fadeSlideUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-slide-up { animation: fadeSlideUp 0.6s ease forwards; }
+
+        /* ===== Click hint pulse ===== */
+        @keyframes hintPulse {
+            0%,100% { opacity: 0.7; transform: translateY(0); }
+            50% { opacity: 1; transform: translateY(-3px); }
+        }
+        #click-hint span { animation: hintPulse 2.5s ease-in-out infinite; }
     </style>
 </head>
 
@@ -157,43 +228,54 @@
 
     <!-- ===== Loading Screen ===== -->
     <div id="loading-screen"
-         class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 transition-opacity duration-700"
-         style="background: #f0f4ff;">
-        <div class="dark-loading-bg absolute inset-0 opacity-0 transition-opacity duration-500" style="background:#0d0f1e;"></div>
+         class="fixed inset-0 z-[9999] flex flex-col items-center justify-center transition-opacity duration-700">
 
-        <!-- Cloud icon + spinner -->
-        <div class="relative flex flex-col items-center gap-4 z-10">
-            <div style="
-                width:80px;height:80px;
-                border-radius:50%;
-                border:4px solid #d8d0f8;
-                border-top-color:#7c6fea;
-                animation:spin 1s linear infinite;">
+        <!-- Floating orbs background -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div style="position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(180,160,255,0.18) 0%,transparent 70%);top:-60px;left:-80px;animation:orbFloat 8s ease-in-out infinite;"></div>
+            <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(140,120,240,0.12) 0%,transparent 70%);bottom:40px;right:-40px;animation:orbFloat 11s ease-in-out infinite reverse;"></div>
+            <div style="position:absolute;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,rgba(200,180,255,0.1) 0%,transparent 70%);top:40%;right:20%;animation:orbFloat 7s ease-in-out infinite 2s;"></div>
+        </div>
+
+        <div class="relative flex flex-col items-center gap-5 z-10">
+            <!-- Spinner ring -->
+            <div class="relative flex items-center justify-center">
+                <div style="width:72px;height:72px;border-radius:50%;border:3px solid rgba(200,190,255,0.3);border-top-color:#7c6fea;animation:spin 1.1s cubic-bezier(0.4,0,0.6,1) infinite;"></div>
+                <div style="position:absolute;width:52px;height:52px;border-radius:50%;border:2px solid rgba(200,190,255,0.15);border-bottom-color:#b8adfa;animation:spin 1.7s cubic-bezier(0.4,0,0.6,1) infinite reverse;"></div>
+                <span style="position:absolute;font-size:22px;">☁️</span>
             </div>
-            <p class="text-[#7c6fea] dark:text-[#c4b8f8] font-black text-lg tracking-wider">กำลังโหลดค่ะ...</p>
+
+            <div class="flex flex-col items-center gap-1.5">
+                <p class="font-black text-base tracking-widest" style="color:#7c6fea;">กำลังโหลดค่ะ...</p>
+                <p class="text-[10px] font-bold tracking-wider" style="color:#b0aad8;">Crayon Cloud — NCK Server Portal</p>
+            </div>
 
             <!-- Progress bar -->
-            <div class="w-56 h-2.5 rounded-full overflow-hidden" style="background:#d8d0f8;">
+            <div class="relative w-52 h-1.5 rounded-full overflow-hidden" style="background:rgba(200,190,255,0.25);">
                 <div id="loading-bar"
-                     class="h-full rounded-full transition-all duration-300"
-                     style="width:0%;background:#7c6fea;"></div>
+                     class="absolute top-0 left-0 h-full rounded-full transition-all duration-300"
+                     style="width:0%;background:linear-gradient(90deg,#a090f0,#7c6fea);box-shadow:0 0 8px rgba(124,111,234,0.5);"></div>
             </div>
-            <p id="loading-percent" class="text-[#a09ad0] text-xs font-bold tracking-widest">0%</p>
+            <p id="loading-percent" class="text-[10px] font-bold tracking-widest" style="color:#b0aad8;">0%</p>
             
             <!-- Skip Button -->
             <button id="skip-loading-btn" 
-                    class="mt-4 px-6 py-2 rounded-full border-2 border-[#7c6fea] text-[#7c6fea] dark:border-[#c4b8f8] dark:text-[#c4b8f8] font-bold text-sm hover:bg-[#7c6fea] hover:text-white dark:hover:bg-[#c4b8f8] dark:hover:text-[#0d0f1e] transition-all duration-500 opacity-0 pointer-events-none transform translate-y-4 outline-none">
-                ข้าม (Skip) ⏭️
+                    class="mt-2 px-5 py-1.5 rounded-full font-bold text-xs tracking-wider transition-all duration-500 opacity-0 pointer-events-none transform translate-y-4 outline-none"
+                    style="border:1.5px solid #7c6fea;color:#7c6fea;background:transparent;">
+                ข้าม ⏭️
             </button>
         </div>
-
-        <p class="text-[#a09ad0] text-[10px] z-10 tracking-wider">Crayon Cloud — NCK Server Portal</p>
     </div>
     <style>
         @keyframes spin { to { transform: rotate(360deg); } }
-        html.dark #loading-screen { background: #0d0f1e !important; }
-        html.dark #loading-screen .text-\[\#7c6fea\] { color: #c4b8f8 !important; }
-        html.dark #loading-bar { background: #c4b8f8 !important; }
+        @keyframes orbFloat { 0%,100%{transform:translateY(0) scale(1);} 50%{transform:translateY(-20px) scale(1.05);} }
+        html.dark #loading-screen { background: linear-gradient(145deg, #0c0e1c 0%, #100e28 50%, #0e0c20 100%) !important; }
+        html.dark #loading-screen p { color: #c4b8f8 !important; }
+        html.dark #loading-bar { background: linear-gradient(90deg,#b8adfa,#9b8ef0) !important; }
+        html.dark #loading-percent { color: #7a70b0 !important; }
+        html.dark #skip-loading-btn { border-color:#c4b8f8!important;color:#c4b8f8!important; }
+        #skip-loading-btn:hover { background:#7c6fea!important;color:#fff!important; }
+        html.dark #skip-loading-btn:hover { background:#c4b8f8!important;color:#0d0f1e!important; }
     </style>
     <!-- ========================= -->
 
@@ -333,55 +415,77 @@
             <div class="pointer-events-auto relative cursor-pointer group" onclick="speak(true)">
                 <div class="w-[25vw] h-[45vh] md:w-[15vw] md:h-[60vh] max-w-[320px] max-h-[550px]"></div>
             </div>
-            <div id="maid-speech-box"
-                 class="pointer-events-auto absolute right-16 bottom-2 md:right-24 md:bottom-4
-                        px-5 py-4 md:px-6 md:py-5
-                        transition-all duration-500 origin-bottom-right
-                        opacity-0 scale-95 translate-y-4
-                        w-[240px] md:w-[320px] shadow-2xl cursor-pointer
-                        bg-white/85 dark:bg-[#1e1a3a]/85 backdrop-blur-md
-                        border-2 border-[#d8d0f8] dark:border-[#4a3e9a]
-                        rounded-2xl rounded-br-md text-left z-10"
-                 onclick="speak(true)">
-                <div class="absolute -top-3.5 left-4 md:left-5 bg-[#7c6fea] dark:bg-[#4a3e9a] text-white px-3 py-0.5 rounded-full text-[10px] md:text-xs font-black tracking-wider shadow-sm">
-                    NecoMaid
-                </div>
-                <span id="speech-text" class="text-[11px] md:text-sm text-[#7c6fea] dark:text-[#c4b8f8] font-bold leading-relaxed block mt-1">
-                    ยินดีต้อนรับกลับมาค่ะ นายท่าน ✨
-                </span>
+        <div id="maid-speech-box"
+             class="pointer-events-auto absolute right-16 bottom-2 md:right-24 md:bottom-4
+                    px-4 py-3.5 md:px-5 md:py-4
+                    transition-all duration-500 origin-bottom-right
+                    opacity-0 scale-95 translate-y-4
+                    w-[220px] md:w-[300px] cursor-pointer
+                    rounded-2xl rounded-br-sm text-left z-10"
+             style="background:rgba(255,255,255,0.7);backdrop-filter:blur(20px) saturate(1.5);-webkit-backdrop-filter:blur(20px) saturate(1.5);border:1.5px solid rgba(200,190,255,0.5);box-shadow:0 8px 32px rgba(100,80,200,0.12),0 2px 8px rgba(100,80,200,0.07);"
+             onclick="speak(true)">
+            <div class="absolute -top-3 left-4 md:left-5 px-2.5 py-0.5 rounded-full text-[10px] md:text-[11px] font-black tracking-wider shadow-md"
+                 style="background:linear-gradient(135deg,#8b7ff0,#6b5fe0);color:white;">
+                NecoMaid
             </div>
+            <span id="speech-text" class="text-[11px] md:text-[13px] font-bold leading-relaxed block mt-1" style="color:#6b5fe0;">
+                ยินดีต้อนรับกลับมาค่ะ นายท่าน ✨
+            </span>
+        </div>
         </div>
     </div>
 
     <div id="music-player-wrap"
-         class="fixed bottom-12 left-5 z-40 flex flex-col items-start gap-1"
+         class="fixed bottom-4 left-4 z-40 flex flex-col items-start gap-1"
          style="opacity:0;pointer-events:none;transition:opacity 0.8s ease 0.3s;">
         <div id="music-player"
-             class="flex flex-col gap-1.5 px-3 py-2 rounded-2xl bg-white/60 dark:bg-[#1e1a3a]/60 border border-[#d8d0f8] dark:border-[#4a3e9a] backdrop-blur-md shadow-lg transition-all duration-300 w-[240px] md:w-[280px]">
+             class="flex flex-col gap-2 px-3.5 py-2.5 w-[220px] md:w-[260px]"
+             style="background:rgba(255,255,255,0.55);backdrop-filter:blur(20px) saturate(1.6);-webkit-backdrop-filter:blur(20px) saturate(1.6);border:1px solid rgba(200,190,255,0.45);border-radius:18px;box-shadow:0 4px 20px rgba(100,80,200,0.1),0 1px 3px rgba(100,80,200,0.06);">
+            
+            <!-- Controls row -->
             <div class="flex items-center justify-between w-full">
-                <div class="flex items-center gap-1.5 md:gap-2">
-                    <button onclick="prevSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏮️</button>
-                    <button id="music-toggle" onclick="toggleMusic()" class="text-lg leading-none hover:scale-125 transition-transform duration-200 outline-none select-none">🔇</button>
-                    <button onclick="nextSong()" class="text-sm md:text-base hover:scale-125 transition-transform duration-200 outline-none select-none">⏭️</button>
-                    <input id="volume-slider" type="range" min="0" max="100" value="25" oninput="setVolume(this.value)" class="custom-slider w-16 md:w-20 ml-1">
+                <div class="flex items-center gap-2">
+                    <button onclick="prevSong()" class="text-sm hover:scale-125 transition-transform duration-150 outline-none select-none opacity-70 hover:opacity-100">⏮</button>
+                    <button id="music-toggle" onclick="toggleMusic()" class="text-base leading-none hover:scale-125 transition-transform duration-150 outline-none select-none">🔇</button>
+                    <button onclick="nextSong()" class="text-sm hover:scale-125 transition-transform duration-150 outline-none select-none opacity-70 hover:opacity-100">⏭</button>
+                    <div class="flex items-center gap-1.5 ml-1">
+                        <span style="font-size:9px;opacity:0.55;">🔈</span>
+                        <input id="volume-slider" type="range" min="0" max="100" value="25" oninput="setVolume(this.value)" class="custom-slider w-14 md:w-16">
+                    </div>
                 </div>
-                <div class="overflow-hidden w-20 md:w-28 ml-1">
-                    <div id="now-playing-text" class="text-[9px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] whitespace-nowrap" style="display:inline-block; animation: marquee 10s linear infinite;">
+                <!-- Song title -->
+                <div class="overflow-hidden w-16 md:w-20">
+                    <div id="now-playing-text" 
+                         class="text-[8px] font-bold whitespace-nowrap"
+                         style="display:inline-block;animation:marquee 10s linear infinite;color:#6b5fe0;">
                         🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp; 🎵 Loading... &nbsp;&nbsp;&nbsp;&nbsp;
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5 w-full mt-0.5">
-                <span id="current-time" class="text-[8px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] w-6 text-right select-none">0:00</span>
-                <input id="seek-slider" type="range" min="0" max="100" value="0" step="0.1" class="custom-slider flex-grow mx-1">
-                <span id="duration-time" class="text-[8px] font-bold text-[#7c6fea] dark:text-[#c4b8f8] w-6 text-left select-none">0:00</span>
+
+            <!-- Seek row -->
+            <div class="flex items-center gap-2 w-full">
+                <span id="current-time" class="text-[7px] font-bold select-none tabular-nums" style="color:#9b8ef0;min-width:22px;text-align:right;">0:00</span>
+                <input id="seek-slider" type="range" min="0" max="100" value="0" step="0.1" class="custom-slider flex-grow">
+                <span id="duration-time" class="text-[7px] font-bold select-none tabular-nums" style="color:#9b8ef0;min-width:22px;text-align:left;">0:00</span>
             </div>
         </div>
     </div>
 
-    <div class="fixed bottom-3 left-5 watermark text-[9px] md:text-[10px] font-black uppercase tracking-widest z-30 flex flex-col gap-0.5">
-        <span class="pointer-events-none">NCK Server | Designed by Master</span>
-        <span class="opacity-80 flex items-center gap-1">
+    <style>
+        html.dark #maid-speech-box {
+            background: rgba(18,14,48,0.75) !important;
+            border-color: rgba(80,65,160,0.45) !important;
+        }
+        html.dark #speech-text { color: #c4b8f8 !important; }
+        html.dark #music-player { background: rgba(18,14,40,0.65) !important; border-color: rgba(80,65,160,0.4) !important; }
+        html.dark #now-playing-text { color: #c4b8f8 !important; }
+        html.dark #current-time, html.dark #duration-time { color: #9b8ef0 !important; }
+    </style>
+
+    <div class="fixed bottom-3 left-4 watermark text-[8px] md:text-[9px] font-bold uppercase tracking-widest z-30 flex flex-col gap-0.5" style="bottom: calc(4px + 88px);">
+        <span class="pointer-events-none opacity-80">NCK Server | Designed by Master</span>
+        <span class="opacity-60 flex items-center gap-1">
             <img src="my-copyright.png" alt="©" 
                  class="h-2.5 md:h-3 w-auto inline-block cursor-pointer hover:scale-125 transition-transform pointer-events-auto" 
                  draggable="false" onclick="openCredit()" onerror="this.style.display='none'"> 
@@ -497,7 +601,8 @@
             { title: 'Aoi Sangosho', src: 'Aoi-Sangosho.mp3' },
             { title: 'Book End Bossa', src: 'BookEndBossa.mp3' },
             { title: 'Suki No Oto', src: 'suki-no-oto.mp3'},
-            {title: 'Anata no koibito ni naritai', src: 'anata-no-koibito.mp3'}
+            {title: 'Anata no koibito ni naritai', src: 'anata-no-koibito.mp3'},
+            {title: 'suki! cho ver', src: 'suki-cho-ver.mp3'}
         ];
 
         let musicTimestamps = {};
