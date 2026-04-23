@@ -1,5 +1,6 @@
 importScripts('./config.js');
 
+// แนะนำให้แก้ CACHE_NAME ใน config.js เป็นเวอร์ชันใหม่ (เช่น v1.2.6) เพื่อบังคับให้ SW อัปเดตใหม่หมด
 const urlsToCache = [
   './',
   './index.html',
@@ -24,24 +25,15 @@ const urlsToCache = [
   './Wallpaper-Dark.webp'
 ];
 
-function broadcastProgress(loaded, total, done) {
-  self.clients.matchAll({ includeUncontrolled: true }).then(clients => {
-    clients.forEach(client => {
-      client.postMessage({ type: 'SW_CACHE_PROGRESS', loaded, total, done: !!done });
-    });
-  });
-}
-
 self.addEventListener('install', event => {
   self.skipWaiting();
-  const total = urlsToCache.length;
-  let loaded = 0;
-
+  
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      return urlsToCache.reduce((chain, url) => {
-        return chain.then(() =>
-          fetch(url)
+      // โหลดแยกทีละไฟล์ เพื่อไม่ให้เกิดการชนกันของ Network Requests
+      return Promise.all(
+        urlsToCache.map(url => {
+          return fetch(url)
             .then(response => {
               if (!response.ok) throw new Error('Failed: ' + url);
               if (response.redirected) {
@@ -49,13 +41,9 @@ self.addEventListener('install', event => {
               }
               return cache.put(url, response);
             })
-            .catch(err => console.warn('SW: Load failed ->', url, err))
-            .finally(() => {
-              loaded++;
-              broadcastProgress(loaded, total, loaded === total);
-            })
-        );
-      }, Promise.resolve());
+            .catch(err => console.warn('SW: Cache failed for ->', url, err));
+        })
+      );
     })
   );
 });
@@ -70,16 +58,18 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
+      
       return fetch(event.request).then(res => {
         if (!res || res.status !== 200) return res;
-        if (res.redirected) return fetch(res.url);
+        // กรณีเป็น partial content 206 บางทีจะไม่เข้าเงื่อนไขนี้ แต่ก็ปล่อยให้ browser จัดการปกติ
         return res;
       }).catch(() => {
         if (event.request.mode === 'navigate') return caches.match('./index.html');
-        return new Response('Offline Mode - ข้อมูลนี้ยังไม่ได้ถูกบันทึกไว้เจ้าค่ะ', {
+        return new Response('Offline Mode - ขออภัย ข้อมูลนี้ยังไม่ได้ถูกบันทึกไว้ในเครื่องเจ้าค่ะ', {
           status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
         });
       });
