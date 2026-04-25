@@ -495,9 +495,41 @@
         </span>
     </div>
 
-    <!-- Modal ตัดทิ้งเพื่อความกระชับ (ยังคงใช้งานได้เหมือนเดิม) -->
-    <div id="credit-modal" class="fixed inset-0 z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/50 backdrop-blur-sm" onclick="closeCredit(event)">
-        <!-- ... เนื้อหาลิขสิทธิ์ ... -->
+    <!-- ===== CREDIT MODAL (Pop-up ลิขสิทธิ์) ===== -->
+    <div id="credit-modal" 
+         class="fixed inset-0 z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 bg-black/50 backdrop-blur-sm"
+         onclick="closeCredit(event)">
+        
+        <div id="credit-content" 
+             class="relative w-[90%] md:w-[650px] max-w-full transform scale-95 transition-transform duration-300 flex items-center justify-center">
+            
+            <img src="Credit.png" alt="Credit Background" class="w-full h-auto drop-shadow-2xl" draggable="false" onerror="this.style.display='none'">
+
+            <div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-8 md:p-14 text-center">
+                <button onclick="closeCredit(event)" id="close-modal-btn" class="absolute top-8 right-10 md:top-12 md:right-16 text-2xl md:text-3xl text-[#7c6fea] dark:text-[#c4b8f8] hover:scale-125 transition-transform outline-none leading-none drop-shadow-md">&times;</button>
+                
+                <h2 class="text-lg md:text-xl font-bold mb-3 md:mb-5 text-[#7c6fea] dark:text-[#c4b8f8] drop-shadow-sm mt-4">
+                    ⚠️ ประกาศลิขสิทธิ์ (Copyright)
+                </h2>
+                
+                <div class="text-[10px] md:text-sm text-left space-y-2 md:space-y-3 font-semibold text-[#5a5480] dark:text-[#a89ff5] w-[85%]">
+                    <p>
+                        หมายเหตุ: ดีไซน์คาแรคเตอร์ "NecoMaid" เป็นลิขสิทธิ์ของ <strong class="text-pink-500 dark:text-pink-400">sonovr</strong> 
+                    </p>
+                    <p>
+                        แต่ <strong>ภาพวาดและอาร์ตเวิร์ค</strong> ของน้องเมดรวมถึงภาพอื่นๆ ที่ปรากฏในโปรเจกต์นี้ เป็นผลงานวาดและลิขสิทธิ์แท้จริงของ <strong class="text-[#7c6fea] dark:text-[#c4b8f8]">ณัชกฤษณ์ ตันติวาณิชย์พงศ์</strong>
+                    </p>
+                    <ul class="space-y-1.5 mt-2 md:mt-3 pt-2 md:pt-3 border-t-2 border-[#d8d0f8]/50 dark:border-[#4a3e9a]/50">
+                        <li>❌ ห้ามบันทึก คัดลอก ดัดแปลง หรือนำภาพวาดไปใช้ในโปรเจกต์อื่นโดยเด็ดขาด</li>
+                        <li>❌ ห้ามนำภาพไปใช้ในเชิงพาณิชย์</li>
+                        <li>❌ <strong>No AI Training:</strong> ห้ามนำภาพไปใช้ในการเทรน AI ในทุกกรณี</li>
+                    </ul>
+                    <p class="text-center text-[#7c6fea] dark:text-[#c4b8f8] mt-3 md:mt-5 text-[9px] md:text-xs">
+                        หากพบเห็นจะมีการดำเนินคดีตามกฎหมาย
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <audio id="bg-music" preload="auto"></audio>
@@ -912,8 +944,7 @@
                 }
             }
 
-            // [อัปเดตใหม่] บังคับให้โหลดไฟล์เพลงและรูปภาพผ่าน DOM เพื่อความมั่นใจว่าอยู่ในแรมจริงๆ 
-            // ลดการพึ่งพา Service Worker Message ที่มักจะโดนข้ามเวลาไฟล์ไม่ครบ
+            // บังคับให้โหลดไฟล์เพลงและรูปภาพผ่าน DOM เพื่อความมั่นใจว่าอยู่ในแรมจริงๆ 
             assetsToLoad.forEach(url => {
                 if (url.endsWith('.mp3')) {
                     try {
