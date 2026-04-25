@@ -448,6 +448,8 @@
                     <button onclick="prevSong()" class="text-sm hover:scale-125 transition-transform duration-150 outline-none select-none opacity-70 hover:opacity-100">⏮</button>
                     <button id="music-toggle" onclick="toggleMusic()" class="text-base leading-none hover:scale-125 transition-transform duration-150 outline-none select-none">🔇</button>
                     <button onclick="nextSong()" class="text-sm hover:scale-125 transition-transform duration-150 outline-none select-none opacity-70 hover:opacity-100">⏭</button>
+                    <button id="mode-btn" onclick="switchMode()" title="สลับโหมดเพลง"
+                            class="text-sm hover:scale-125 transition-transform duration-150 outline-none select-none opacity-80 hover:opacity-100">🎵</button>
                     <div class="flex items-center gap-1.5 ml-1">
                         <span style="font-size:9px;opacity:0.55;">🔈</span>
                         <input id="volume-slider" type="range" min="0" max="100" value="25" oninput="setVolume(this.value)" class="custom-slider w-14 md:w-16">
@@ -596,14 +598,27 @@
             }, 6000);
         }
 
-        const playlist = [
+        const normalPlaylist = [
             { title: 'hatachi no koi', src: 'hatachi-no-koi.mp3' },
             { title: 'Aoi Sangosho', src: 'Aoi-Sangosho.mp3' },
             { title: 'Book End Bossa', src: 'BookEndBossa.mp3' },
             { title: 'Suki No Oto', src: 'suki-no-oto.mp3'},
-            {title: 'Anata no koibito ni naritai', src: 'anata-no-koibito.mp3'},
-            {title: 'suki! cho ver', src: 'suki-cho-ver.mp3'}
+            { title: 'Anata no koibito ni naritai', src: 'anata-no-koibito.mp3'},
+            { title: 'suki! cho ver', src: 'suki-cho-ver.mp3'}
         ];
+
+        const gamingPlaylist = [
+            { title: 'Popping Shower', src: 'Popping-Shower.mp3' },
+            { title: "I'm So Happy", src: 'Im-so-happy.mp3' },
+            { title: 'Sakura Storm', src: 'Sakura-Storm.mp3' },
+            { title: 'Xepher', src: 'Xepher.mp3' },
+            { title: 'Sakura Sunrise', src: 'Sakura-Sunrise.mp3'},
+            { title: 'Daisycutter', src: 'Daisycutter.mp3'}
+        ];
+
+        // โหมดปัจจุบัน: 'normal' หรือ 'gaming'
+        let currentMode = localStorage.getItem('musicMode') || 'normal';
+        let playlist = currentMode === 'gaming' ? gamingPlaylist : normalPlaylist;
 
         let musicTimestamps = {};
         fetch('./music-timestamps.json')
@@ -635,6 +650,7 @@
                 volSlider.value = initialVolume;
                 updateSliderBgColor(volSlider, initialVolume);
             }
+            updateModeBtn();
         });
 
         const seekSlider = document.getElementById('seek-slider');
@@ -741,6 +757,36 @@
 
         audio.addEventListener('ended', () => nextSong(false));
 
+        function switchMode() {
+            playNormalClick();
+
+            currentMode = currentMode === 'normal' ? 'gaming' : 'normal';
+            localStorage.setItem('musicMode', currentMode);
+
+            playlist = currentMode === 'gaming' ? gamingPlaylist : normalPlaylist;
+
+            // Random เพลงใหม่ทุกครั้งที่สลับโหมด เหมือนพฤติกรรมเดิม
+            currentSongIndex = Math.floor(Math.random() * playlist.length);
+
+            updateModeBtn();
+            loadSong(currentSongIndex, true);
+            if (!isPlaying) { isPlaying = true; toggleBtn.textContent = '🔊'; }
+        }
+
+        function updateModeBtn() {
+            const btn = document.getElementById('mode-btn');
+            if (!btn) return;
+            if (currentMode === 'gaming') {
+                btn.textContent = '🎮';
+                btn.title = 'โหมด Gaming — คลิกเพื่อสลับ';
+                btn.style.color = '#f97316';
+            } else {
+                btn.textContent = '🎵';
+                btn.title = 'โหมด Normal — คลิกเพื่อสลับ';
+                btn.style.color = '';
+            }
+        }
+
         function enterPortal() {
             if (window._portalEntered) return;
             window._portalEntered = true;
@@ -767,25 +813,48 @@
                 
                 const volSlider = document.getElementById('volume-slider');
                 const targetVolume = volSlider ? volSlider.value / 100 : 0.25;
-                audio.volume = 0; 
-                
-                loadSong(currentSongIndex, true);
-                
-                let currentFadeVol = 0;
-                const fadeSteps = 20;
-                const fadeDuration = 2000;
-                const stepTime = fadeDuration / fadeSteps;
-                const volStep = targetVolume / fadeSteps;
 
-                if (fadeInterval) clearInterval(fadeInterval);
-                fadeInterval = setInterval(() => {
-                    currentFadeVol += volStep;
-                    if (currentFadeVol >= targetVolume) {
-                        currentFadeVol = targetVolume;
-                        clearInterval(fadeInterval);
-                    }
-                    audio.volume = currentFadeVol;
-                }, stepTime);
+                if (currentMode === 'gaming') {
+                    // Gaming mode: fade in 1 วินาที
+                    audio.volume = 0;
+                    loadSong(currentSongIndex, true);
+
+                    let currentFadeVol = 0;
+                    const fadeSteps = 20;
+                    const fadeDuration = 1000;
+                    const stepTime = fadeDuration / fadeSteps;
+                    const volStep = targetVolume / fadeSteps;
+
+                    if (fadeInterval) clearInterval(fadeInterval);
+                    fadeInterval = setInterval(() => {
+                        currentFadeVol += volStep;
+                        if (currentFadeVol >= targetVolume) {
+                            currentFadeVol = targetVolume;
+                            clearInterval(fadeInterval);
+                        }
+                        audio.volume = currentFadeVol;
+                    }, stepTime);
+                } else {
+                    // Normal mode: fade in ตามเดิม
+                    audio.volume = 0;
+                    loadSong(currentSongIndex, true);
+
+                    let currentFadeVol = 0;
+                    const fadeSteps = 20;
+                    const fadeDuration = 2000;
+                    const stepTime = fadeDuration / fadeSteps;
+                    const volStep = targetVolume / fadeSteps;
+
+                    if (fadeInterval) clearInterval(fadeInterval);
+                    fadeInterval = setInterval(() => {
+                        currentFadeVol += volStep;
+                        if (currentFadeVol >= targetVolume) {
+                            currentFadeVol = targetVolume;
+                            clearInterval(fadeInterval);
+                        }
+                        audio.volume = currentFadeVol;
+                    }, stepTime);
+                }
 
             }, 300);
             
@@ -799,11 +868,13 @@
             const loadingPct    = document.getElementById('loading-percent');
             const skipBtn       = document.getElementById('skip-loading-btn');
             
-            // รวมไฟล์ทั้งหมดที่จำเป็น (รวม playlist เข้าไปเลย)
+            // รวมไฟล์ทั้งหมดที่จำเป็น (รวม playlist ทั้ง 2 โหมด)
             const assetsToLoad = [
                 'MainCloud.png', 'MainBanner.png', 'MainSplash.png', 'Cloud1.png', 'Cloud2.png',
                 'ComingSoon-Cloud.png', 'Darkmode-cloud.png', 'On-Hover.png', 'Wallpaper-Light.webp', 'Wallpaper-Dark.webp',
-                'OnClick.mp3', 'Normal-Mouse-Click.mp3', ...playlist.map(s => s.src)
+                'OnClick.mp3', 'Normal-Mouse-Click.mp3',
+                ...normalPlaylist.map(s => s.src),
+                ...gamingPlaylist.map(s => s.src)
             ];
             
             const TOTAL_FILES = assetsToLoad.length;

@@ -1,9 +1,17 @@
 {
   "_comment": "สามารถตั้งเวลาได้ทั้งแบบ นาที:วินาที หรือใส่เสี้ยววินาทีได้ด้วย เช่น 0:36.5 หรือ 36.5",
+  "_comment2": "Normal Mode",
   "hatachi-no-koi.mp3": "0:00",
   "Aoi-Sangosho.mp3": "1:23",
   "BookEndBossa.mp3": "0:00",
   "suki-no-oto.mp3": "2:22.0",
   "anata-no-koibito.mp3": "3:08",
-  "suki-cho-ver.mp3": "1:11.0"
+  "suki-cho-ver.mp3": "1:11.0",
+  "_comment3": "Gaming Mode",
+  "Popping-Shower.mp3": "1:26.5",
+  "Im-so-happy.mp3": "1:11.5",
+  "Sakura-Storm.mp3": "1:02.5",
+  "Xepher.mp3": "1:11",
+  "Sakura-Sunrise.mp3" : "2:11",
+  "Daisycutter.mp3": "0:20"
 }
