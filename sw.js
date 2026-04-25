@@ -22,6 +22,12 @@ const urlsToCache = [
   './suki-no-oto.mp3',
   './anata-no-koibito.mp3',
   './suki-cho-ver.mp3',
+  './Popping-Shower.mp3',
+  './Im-so-happy.mp3',
+  './Sakura-Storm.mp3',
+  './Xepher.mp3',
+  './Sakura-Sunrise.mp3',
+  './Daisycutter.mp3',
   './Wallpaper-Light.webp',
   './Wallpaper-Dark.webp'
 ];
