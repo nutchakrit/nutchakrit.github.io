@@ -67,7 +67,7 @@
     <!-- ========================= -->
 
     <!-- Toast Notification -->
-    <div id="error-toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 -translate-y-24 opacity-0 bg-slate-800/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl z-[100] transition-all duration-500 font-bold text-sm max-w-[90vw] text-center border border-slate-700">
+    <div id="error-toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 -translate-y-24 opacity-0 bg-slate-800/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl z-[100] transition-all duration-500 font-bold text-sm max-w-[90vw] text-center border border-slate-700 pointer-events-none">
         <span id="error-toast-msg"></span>
     </div>
 
@@ -80,6 +80,28 @@
             </div>
             <div id="unfold-list" class="p-4 overflow-y-auto space-y-3 bg-slate-50 dark:bg-darkBg flex-1">
                 <!-- รายการบิลจะถูกใส่ตรงนี้ -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Data Merge Prompt (Offline -> Online) -->
+    <div id="merge-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[105] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-darkCard rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-transform duration-300 p-6 border border-slate-200 dark:border-blue-900/50">
+            <div class="text-center mb-6">
+                <div class="text-5xl mb-4">🔄</div>
+                <h3 class="font-black text-slate-800 dark:text-blue-100 text-xl mb-2">พบตะกร้าที่ยังไม่ได้พับ!</h3>
+                <p class="text-sm font-bold text-slate-500 dark:text-blue-200/70">คุณมีรายการที่จดค้างไว้ตอนออฟไลน์ และมีตะกร้าที่ค้างอยู่บนเว็บ (Cloud) จะให้จัดการอย่างไร?</p>
+            </div>
+            <div class="space-y-3">
+                <button id="merge-combine-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-xl shadow-md transition-all active:scale-95">
+                    1. รวมเข้าด้วยกัน (Merge)
+                </button>
+                <button id="merge-overwrite-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-3 rounded-xl shadow-md transition-all active:scale-95">
+                    2. ใช้ของออฟไลน์ (ทับของบนเว็บ)
+                </button>
+                <button id="merge-discard-btn" class="w-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 font-black py-3 rounded-xl transition-all active:scale-95">
+                    3. ทิ้งออฟไลน์ (ใช้ของบนเว็บ)
+                </button>
             </div>
         </div>
     </div>
@@ -189,7 +211,6 @@
                 <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-4 border-b-2 border-blue-50 dark:border-blue-900/20 pb-3 gap-3">
                     <h2 class="text-xl font-bold text-mainBrand dark:text-green-300 flex items-center gap-2 tracking-tight"><span>🛒</span> รายการสินค้า</h2>
                     <div class="flex flex-wrap items-center justify-end gap-2 w-full lg:w-auto">
-                        <!-- ปุ่มคลี่บิล ย้ายมาตรงนี้! -->
                         <button id="open-unfold-modal-btn" class="flex-1 sm:flex-none bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-500 border border-blue-200 dark:border-blue-800 font-black py-1.5 px-3 rounded-2xl text-xs transition-all flex justify-center items-center gap-1 active:scale-95 shadow-sm">
                             <span class="text-base leading-none">📥</span> คลี่บิล
                         </button>
@@ -290,13 +311,13 @@
         let isInitialLoad = true;
         let historyData = [];
         let expandedReceiptId = null;
-        window.isCompareOpen = false; // ป้องกัน ReferenceError ในบางเบราว์เซอร์
+        window.isCompareOpen = false;
         let isCompareOpen = false; 
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'necomart-app';
         const html = document.documentElement;
 
-        // --- ตั้งค่า Firebase สำหรับ GitHub Pages ของคุณ ---
+        // Firebase Config (Keep your original logic)
         const MY_FIREBASE_CONFIG = {
             apiKey: "AIzaSyD-Vgayvdkl165ZO6kYCfv2OOfvZHqB59g",
             authDomain: "necomart-github.firebaseapp.com",
@@ -306,7 +327,6 @@
             appId: "1:181730496545:web:022815a30d6aafd4c65360"
         };
 
-        // View Tabs
         const tabActive = document.getElementById('tab-active');
         const tabHistory = document.getElementById('tab-history');
         const viewActive = document.getElementById('active-view');
@@ -353,7 +373,6 @@
                 : `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>`;
         }
 
-        // --- View Switching Logic ---
         function switchView(view) {
             const activeClass = "px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-white text-[#00a650] shadow-sm";
             const inactiveClass = "px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-white/70 hover:text-white";
@@ -375,7 +394,6 @@
         tabActive.addEventListener('click', () => switchView('active'));
         tabHistory.addEventListener('click', () => switchView('history'));
 
-        // --- Theme Toggle ---
         document.getElementById('theme-btn').addEventListener('click', () => {
             const isDark = html.classList.contains('dark'); 
             html.classList.toggle('dark', !isDark); 
@@ -383,7 +401,6 @@
             localStorage.setItem('theme', !isDark ? 'dark' : 'light');
         });
 
-        // --- Firebase & Init Setup ---
         async function initApp() {
             try {
                 const r = await fetch(API_URL); const d = await r.json(); currentRate = d.rates.THB;
@@ -421,7 +438,6 @@
             if (html.classList.contains('dark')) document.getElementById('theme-icon').innerText = '🌙'; 
             else document.getElementById('theme-icon').innerText = '☀️';
 
-            // เลือกใช้ Config ระหว่างโหมดจำลอง กับ โหมด GitHub Pages
             let firebaseConfigToUse = null;
             let isCustomConfig = false;
 
@@ -444,7 +460,6 @@
                         await signInAnonymously(auth).catch(()=>{});
                     }
 
-                    // Setup Google Login provider
                     const provider = new GoogleAuthProvider();
                     document.getElementById('google-login-btn').addEventListener('click', async () => {
                         try {
@@ -452,17 +467,28 @@
                             await signInWithPopup(auth, provider);
                             showToast("✅ ล็อกอิน Google สำเร็จ!");
                         } catch (error) {
-                            console.error(error);
                             showToast("❌ ล็อกอินไม่สำเร็จ");
                             document.getElementById('google-login-btn').innerHTML = `<span class="bg-white text-mainBrand w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">G</span> ล็อกอิน`;
                         }
                     });
 
+                    // แก้ไขปุ่ม Logout
                     document.getElementById('logout-btn').addEventListener('click', async () => {
                         try {
                             await signOut(auth);
-                            await signInAnonymously(auth);
-                            showToast("👋 ออกจากระบบแล้ว");
+                            
+                            // Reset State เป็น Offline
+                            user = null;
+                            isInitialLoad = true;
+                            document.getElementById('inputs-wrapper').innerHTML = '';
+                            document.getElementById('budget-input').value = '';
+                            addRowUI();
+                            calculateTotal();
+                            updateHistoryArray(); // โหลดประวัติ Offline แทน
+                            switchView('active');
+                            
+                            await signInAnonymously(auth); // กลับเป็น Anonymous
+                            showToast("👋 ออกจากระบบแล้ว (กลับสู่โหมดออฟไลน์)");
                         } catch (error) { console.error(error); }
                     });
 
@@ -477,21 +503,22 @@
                                 profile.classList.add('hidden');
                                 profile.classList.remove('flex');
                                 loginBtn.innerHTML = `<span class="bg-white text-mainBrand w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">G</span> ล็อกอิน`;
+                                loadOfflineActiveSession();
+                                updateHistoryArray();
                             } else {
                                 loginBtn.classList.add('hidden');
                                 profile.classList.remove('hidden');
                                 profile.classList.add('flex');
                                 document.getElementById('user-avatar').src = user.photoURL || '';
                                 document.getElementById('user-name').innerText = user.displayName?.split(' ')[0] || 'ผู้ใช้';
+                                listenToActiveSession();
+                                listenToHistory();
                             }
-                            listenToActiveSession();
-                            listenToHistory();
                         } else {
                             hideLoading();
                         }
                     });
                 } catch(e) {
-                    console.error("Firebase err:", e);
                     loadOfflineFallback();
                 }
             } else {
@@ -509,29 +536,19 @@
 
         function loadOfflineFallback() {
             hideLoading();
-            addRowUI();
-            calculateTotal();
-            showToast("📴 ใช้งานแบบออฟไลน์ (ไม่ซิงก์คลาวด์)");
+            loadOfflineActiveSession();
+            updateHistoryArray();
+            showToast("📴 ใช้งานแบบออฟไลน์");
         }
 
-        // --- Firebase Listeners ---
-        function listenToActiveSession() {
-            if (!user) return;
-            const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'active_session', 'current');
-            onSnapshot(ref, (snap) => {
-                if (isInitialLoad) {
-                    document.getElementById('inputs-wrapper').innerHTML = '';
-                    if (snap.exists() && snap.data().items && snap.data().items.length > 0) {
-                        const data = snap.data();
-                        
-                        const firstTs = data.items[0].timestamp;
-                        if (new Date(firstTs).toDateString() !== new Date().toDateString()) {
-                            const formatD = (d) => `${d.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][d.getMonth()]}`;
-                            document.getElementById('old-session-date').innerText = formatD(new Date(firstTs));
-                            document.getElementById('old-session-prompt').classList.remove('hidden');
-                            document.getElementById('old-session-prompt').classList.add('flex');
-                        }
-
+        // --- Offline / Online Storage Helpers ---
+        function loadOfflineActiveSession() {
+            document.getElementById('inputs-wrapper').innerHTML = '';
+            const saved = localStorage.getItem('necomart_offline_active');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.items && data.items.length > 0) {
                         data.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
                         if(data.budget) {
                             document.getElementById('budget-input').value = data.budget.val || '';
@@ -540,21 +557,136 @@
                     } else {
                         addRowUI('', false, '0', '', null, null, true);
                     }
-                    calculateTotal();
+                } catch(e) { addRowUI('', false, '0', '', null, null, true); }
+            } else {
+                addRowUI('', false, '0', '', null, null, true);
+            }
+            calculateTotal();
+            hideLoading();
+        }
+
+        function updateHistoryArray(cloudDocs = []) {
+            let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+            historyData = [...cloudDocs, ...offRecs].sort((a, b) => b.foldTime - a.foldTime);
+            if (viewHistory.style.display === 'block') renderHistory();
+        }
+
+        // --- Firebase Listeners ---
+        let activeSessionUnsubscribe = null;
+        let pendingCloudData = null;
+
+        function listenToActiveSession() {
+            if (!user || user.isAnonymous) return;
+            const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'active_session', 'current');
+            
+            if(activeSessionUnsubscribe) activeSessionUnsubscribe();
+            
+            activeSessionUnsubscribe = onSnapshot(ref, (snap) => {
+                if (isInitialLoad) {
+                    const localActiveStr = localStorage.getItem('necomart_offline_active');
+                    const localActive = localActiveStr ? JSON.parse(localActiveStr) : null;
+                    const hasLocalItems = localActive && localActive.items && localActive.items.length > 0;
+                    
+                    const hasCloudItems = snap.exists() && snap.data().items && snap.data().items.length > 0;
+
+                    if (hasLocalItems && hasCloudItems) {
+                        // ถามยูสเซอร์ผ่าน Modal
+                        pendingCloudData = snap.data();
+                        document.getElementById('merge-modal').classList.remove('hidden');
+                        setTimeout(() => { document.getElementById('merge-modal').classList.remove('opacity-0'); document.getElementById('merge-modal').classList.add('opacity-100'); }, 10);
+                        hideLoading();
+                    } else if (hasLocalItems && !hasCloudItems) {
+                        // อัปโหลดของ Local ขึ้น Cloud เลย
+                        loadOfflineActiveSession();
+                        saveData(); // จะเซฟขึ้น Cloud เพราะ user ไม่ใช่ Anonymous แล้ว
+                        localStorage.removeItem('necomart_offline_active');
+                        hideLoading();
+                    } else {
+                        // โหลดของ Cloud ปกติ
+                        renderCloudSession(snap.data());
+                    }
                     isInitialLoad = false;
-                    hideLoading();
+                } else if (!document.getElementById('merge-modal').classList.contains('opacity-100')) {
+                    // Update ปกติถ้าไม่ใช่ Initial หรือติด Modal อยู่
+                    // (กรณีเปิดหลายแท็บ ให้ฟังการเปลี่ยนแปลง แต่หลีกเลี่ยงการกระตุกขณะพิมพ์)
                 }
             }, (err) => console.error(err));
         }
 
+        function renderCloudSession(data) {
+            document.getElementById('inputs-wrapper').innerHTML = '';
+            if (data && data.items && data.items.length > 0) {
+                const firstTs = data.items[0].timestamp;
+                if (new Date(firstTs).toDateString() !== new Date().toDateString()) {
+                    const formatD = (d) => `${d.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][d.getMonth()]}`;
+                    document.getElementById('old-session-date').innerText = formatD(new Date(firstTs));
+                    document.getElementById('old-session-prompt').classList.remove('hidden');
+                    document.getElementById('old-session-prompt').classList.add('flex');
+                }
+
+                data.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
+                if(data.budget) {
+                    document.getElementById('budget-input').value = data.budget.val || '';
+                    if(data.budget.currency) document.getElementById('budget-currency').value = data.budget.currency;
+                }
+            } else {
+                addRowUI('', false, '0', '', null, null, true);
+            }
+            calculateTotal();
+            hideLoading();
+        }
+
+        // --- Merge Modal Actions ---
+        const closeMergeModal = () => {
+            document.getElementById('merge-modal').classList.remove('opacity-100');
+            document.getElementById('merge-modal').classList.add('opacity-0');
+            setTimeout(() => document.getElementById('merge-modal').classList.add('hidden'), 300);
+            localStorage.removeItem('necomart_offline_active');
+        };
+
+        document.getElementById('merge-combine-btn').addEventListener('click', () => {
+            // เอา Cloud ต่อด้วย Local
+            const localActive = JSON.parse(localStorage.getItem('necomart_offline_active'));
+            document.getElementById('inputs-wrapper').innerHTML = '';
+            
+            // Render Cloud first
+            if(pendingCloudData && pendingCloudData.items) {
+                pendingCloudData.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
+                if(pendingCloudData.budget) {
+                    document.getElementById('budget-input').value = pendingCloudData.budget.val || '';
+                }
+            }
+            // Append Local
+            if(localActive && localActive.items) {
+                localActive.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
+            }
+            calculateTotal();
+            saveData();
+            closeMergeModal();
+            showToast("✅ รวมข้อมูลเรียบร้อย");
+        });
+
+        document.getElementById('merge-overwrite-btn').addEventListener('click', () => {
+            loadOfflineActiveSession();
+            saveData(); // Overwrite Cloud
+            closeMergeModal();
+            showToast("✅ ใช้ข้อมูลออฟไลน์ทับบนคลาวด์");
+        });
+
+        document.getElementById('merge-discard-btn').addEventListener('click', () => {
+            renderCloudSession(pendingCloudData);
+            closeMergeModal();
+            showToast("✅ ใช้ข้อมูลจากคลาวด์");
+        });
+
+
         function listenToHistory() {
-            if (!user) return;
+            if (!user || user.isAnonymous) return;
             const ref = collection(db, 'artifacts', appId, 'users', user.uid, 'receipts');
             onSnapshot(ref, (snap) => {
-                const arr = [];
-                snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-                historyData = arr.sort((a, b) => b.foldTime - a.foldTime);
-                if (viewHistory.style.display === 'block') renderHistory();
+                const cloudArr = [];
+                snap.forEach(d => cloudArr.push({ id: d.id, ...d.data(), isOffline: false }));
+                updateHistoryArray(cloudArr);
             }, (err) => console.error(err));
         }
 
@@ -565,7 +697,7 @@
                 const input = row.querySelector('.jpy-input');
                 const noteM = row.querySelector('.note-input-mobile').value;
                 const noteD = row.querySelector('.note-input-desktop').value;
-                const note = window.innerWidth < 640 ? noteM : noteD; // Use visible input
+                const note = window.innerWidth < 640 ? noteM : noteD; 
                 if (input) rows.push({ 
                     id: row.dataset.rowId,
                     rawVal: input.value,
@@ -584,20 +716,24 @@
             });
             const compareData = { isOpen: isCompareOpen, rows: compareRows };
             
-            localStorage.setItem('necomaid_calc_data', JSON.stringify({ budgetData, compareData }));
+            localStorage.setItem('necomaid_calc_data', JSON.stringify({ budgetData, compareData })); // For Compare UI mainly
 
             const hasItems = rows.some(r => r.val > 0);
             document.getElementById('fold-bill-container').style.display = hasItems ? 'block' : 'none';
 
-            if (user && db && !isInitialLoad) {
-                const activeDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'active_session', 'current');
-                // Mapping local 'note' field to firebase 'name' field for consistency
-                const fbRows = rows.map(r => ({...r, name: r.note}));
-                setDoc(activeDocRef, { items: fbRows, budget: budgetData }, { merge: true }).catch(()=>{});
+            const activeData = { items: rows.map(r => ({...r, name: r.note})), budget: budgetData };
+
+            if (!isInitialLoad) {
+                if (user && !user.isAnonymous && db) {
+                    const activeDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'active_session', 'current');
+                    setDoc(activeDocRef, activeData, { merge: true }).catch(()=>{});
+                } else {
+                    localStorage.setItem('necomart_offline_active', JSON.stringify(activeData));
+                }
             }
         });
 
-        // --- Universal Add Row UI ---
+        // --- Universal Add Row UI (Updated Keyboard Logic) ---
         const addRowUI = safeRun((val = '', isH = false, disc = '0', note = '', ts = null, rowId = null, skipSave = false) => {
             const rId = rowId || Date.now().toString() + Math.random().toString(36).substr(2, 5);
             const timestamp = ts || Date.now();
@@ -642,6 +778,8 @@
                 </div>
             `;
             
+            wrapper.appendChild(row);
+
             const inputPrice = row.querySelector('.jpy-input');
             const noteD = row.querySelector('.note-input-desktop');
             const noteM = row.querySelector('.note-input-mobile');
@@ -651,27 +789,27 @@
             const dSlider = row.querySelector('.discount-slider');
 
             inputPrice.addEventListener('input', () => calculateTotal());
+            
+            // คีย์บอร์ด (ราคา)
             inputPrice.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
-                    if (e.ctrlKey || e.metaKey) {
-                        e.preventDefault();
-                        addRowUI();
-                        const newAll = wrapper.querySelectorAll('.jpy-input');
-                        if (window.innerWidth >= 640) newAll[newAll.length - 1].focus();
-                        return;
-                    }
                     e.preventDefault();
-                    const all = wrapper.querySelectorAll('.jpy-input');
-                    const isLast = inputPrice === all[all.length-1];
-                    if (window.innerWidth < 640) {
-                        inputPrice.blur(); 
-                        if(isLast && inputPrice.value !== '') addRowUI();
+                    const allPrices = Array.from(wrapper.querySelectorAll('.jpy-input'));
+                    const idx = allPrices.indexOf(inputPrice);
+                    
+                    if (idx < allPrices.length - 1) {
+                        // เลื่อนไปราคากล่องถัดไป
+                        allPrices[idx + 1].focus();
                     } else {
-                        noteD.focus(); // บนคอม ให้ Enter เลื่อนไปช่องชื่อรายการ
+                        // กล่องสุดท้าย
+                        if (inputPrice.value !== '') {
+                            addRowUI(); // จะ focus อัตโนมัติใน addRowUI
+                        }
                     }
                 }
             });
 
+            // การจัดการปุ่ม Note สำหรับมือถือ
             toggleNoteBtn.addEventListener('click', () => {
                 mobileNoteCont.classList.toggle('hidden');
                 if (!mobileNoteCont.classList.contains('hidden')) noteM.focus();
@@ -683,39 +821,43 @@
             noteD.addEventListener('input', (e) => handleNoteChange(e.target.value));
             noteM.addEventListener('input', (e) => handleNoteChange(e.target.value));
             
+            // คีย์บอร์ด (Note บนคอม)
             noteD.addEventListener('keydown', (e) => { 
-                if (e.key === 'Enter') { 
-                    if (e.ctrlKey || e.metaKey) {
-                        e.preventDefault();
-                        addRowUI();
-                        const newAll = wrapper.querySelectorAll('.jpy-input');
-                        if (window.innerWidth >= 640) newAll[newAll.length - 1].focus();
-                        return;
+                if (e.key === 'Tab') {
+                    const allNotes = Array.from(wrapper.querySelectorAll('.note-input-desktop'));
+                    const idx = allNotes.indexOf(noteD);
+                    if (idx === allNotes.length - 1) {
+                        e.preventDefault(); 
+                        addRowUI(); // ถ้า Tab ที่โน้ตสุดท้าย ให้สร้างแถวใหม่แล้วโฟกัสราคา
                     }
-                    e.preventDefault(); 
+                    // ถ้าไม่ใช่กล่องสุดท้าย Tab default จะไปตกที่ Focus btn หรือ ราคาถัดไปได้เอง
+                } else if (e.key === 'Enter') { 
+                    e.preventDefault();
+                    const allPrices = Array.from(wrapper.querySelectorAll('.jpy-input'));
+                    const allNotes = Array.from(wrapper.querySelectorAll('.note-input-desktop'));
+                    const idx = allNotes.indexOf(noteD);
                     
-                    const allNotes = wrapper.querySelectorAll('.note-input-desktop');
-                    const allPrices = wrapper.querySelectorAll('.jpy-input');
-                    const idx = Array.from(allNotes).indexOf(noteD);
-                    const isLast = idx === allNotes.length - 1;
-
-                    if (!isLast) {
-                        allPrices[idx + 1].focus(); // เลื่อนไปราคากล่องถัดไป
+                    if (idx < allNotes.length - 1) {
+                        allPrices[idx + 1].focus();
                     } else {
-                        noteD.blur(); // ถ้าช่องสุดท้ายให้พับคีย์บอร์ด (บังคับให้ใช้ Ctrl+Enter เพิ่มบรรทัดตามที่ขอ)
+                        addRowUI();
                     }
                 } 
             });
+
+            // คีย์บอร์ด (Note บนมือถือ)
             noteM.addEventListener('keydown', (e) => { 
                 if (e.key === 'Enter') { 
-                    if (e.ctrlKey || e.metaKey) {
-                        e.preventDefault();
-                        addRowUI();
-                        return;
-                    }
                     e.preventDefault(); 
-                    noteM.blur(); 
-                    mobileNoteCont.classList.add('hidden');
+                    const allPrices = Array.from(wrapper.querySelectorAll('.jpy-input'));
+                    const allNotes = Array.from(wrapper.querySelectorAll('.note-input-mobile'));
+                    const idx = allNotes.indexOf(noteM);
+
+                    if (idx < allNotes.length - 1) {
+                        allPrices[idx + 1].focus();
+                    } else {
+                        addRowUI();
+                    }
                 } 
             });
 
@@ -736,9 +878,11 @@
                 else { inputPrice.value = ''; noteD.value = ''; noteM.value = ''; calculateTotal(); } 
             });
 
-            wrapper.appendChild(row); 
-            if(!skipSave && window.innerWidth >= 640) inputPrice.focus();
-            if(!skipSave) saveData();
+            if(!skipSave) {
+                // Focus newly created input
+                inputPrice.focus();
+                saveData();
+            }
         });
 
         // --- Core Calculations ---
@@ -808,12 +952,10 @@
             if(!isInitialLoad) saveData();
         });
 
-        // --- Fold Bill (Immediate Action unless Old Session) ---
+        // --- Fold Bill ---
         document.getElementById('fold-bill-btn').addEventListener('click', (e) => {
-            if (!user) { showToast("⚠️ กำลังพยายามเชื่อมต่อ Cloud กรุณารอสักครู่"); return; }
             const hasItems = Array.from(document.getElementById('inputs-wrapper').querySelectorAll('.row-container')).some(r => evaluateMath(r.querySelector('.jpy-input').value) > 0);
             if (!hasItems) { showToast("ไม่มีรายการให้พับ"); return; }
-
             performFoldLogic(e.currentTarget);
         });
 
@@ -863,11 +1005,23 @@
                     useBtn.classList.add('opacity-50', 'pointer-events-none');
                 }
 
-                const rRef = doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', receiptData.id);
-                await setDoc(rRef, receiptData);
+                if (user && !user.isAnonymous && db) {
+                    // Online Save
+                    const rRef = doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', receiptData.id);
+                    await setDoc(rRef, receiptData);
+                } else {
+                    // Offline Save
+                    receiptData.isOffline = true;
+                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                    offRecs.push(receiptData);
+                    localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                    updateHistoryArray();
+                }
                 
                 document.getElementById('inputs-wrapper').innerHTML = '';
                 document.getElementById('budget-input').value = '';
+                localStorage.removeItem('necomart_offline_active'); // Clear offline active if folded
+                
                 addRowUI();
                 calculateTotal();
                 showToast("🧾 พับบิลเก็บเรียบร้อย!");
@@ -897,7 +1051,7 @@
         document.getElementById('fold-old-session-btn').addEventListener('click', (e) => performFoldLogic(e.currentTarget));
 
 
-        // --- Unfold Modal Logic (หน้า NecoMart) ---
+        // --- Unfold Modal Logic ---
         const unfoldModal = document.getElementById('unfold-modal');
         
         function openUnfoldModal() {
@@ -906,9 +1060,9 @@
                 list.innerHTML = '<div class="py-10 text-center text-slate-400 font-bold">ไม่มีบิลให้คลี่</div>';
             } else {
                 list.innerHTML = historyData.map(r => `
-                    <div class="unfold-item p-3 bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-slate-200 dark:border-green-800/40 flex justify-between items-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group" data-id="${r.id}">
+                    <div class="unfold-item p-3 bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-slate-200 dark:border-green-800/40 flex justify-between items-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group" data-id="${r.id}" data-offline="${r.isOffline || false}">
                         <div>
-                            <div class="font-black text-slate-700 dark:text-blue-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${r.title}</div>
+                            <div class="font-black text-slate-700 dark:text-blue-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${r.title} ${r.isOffline ? ' <span class="text-[10px] bg-blue-100 text-blue-600 px-1.5 rounded">ออฟไลน์</span>' : ''}</div>
                             <div class="text-[10px] text-slate-400 font-bold mt-1">${r.items.length} รายการ • รวม ${r.totalThb.toLocaleString()} ฿ (${Number(r.totalJpy || 0).toLocaleString('th-TH', {maximumFractionDigits: 2})} ¥)</div>
                         </div>
                         <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 flex items-center justify-center font-bold shadow-inner group-hover:scale-110 transition-transform">
@@ -918,7 +1072,6 @@
                 `).join('');
             }
             unfoldModal.classList.remove('hidden');
-            // Allow display block to render before triggering opacity transition
             setTimeout(() => { unfoldModal.classList.remove('opacity-0'); unfoldModal.classList.add('opacity-100'); }, 10);
         }
         
@@ -931,10 +1084,11 @@
         document.getElementById('open-unfold-modal-btn').addEventListener('click', openUnfoldModal);
         document.getElementById('close-unfold-modal').addEventListener('click', closeUnfoldModal);
         
-        document.getElementById('unfold-list').addEventListener('click', (e) => {
+        document.getElementById('unfold-list').addEventListener('click', async (e) => {
             const item = e.target.closest('.unfold-item');
             if(!item) return;
             const recId = item.dataset.id;
+            const isOffline = item.dataset.offline === 'true';
             const receipt = historyData.find(r => r.id === recId);
             if(!receipt) return;
 
@@ -952,7 +1106,14 @@
                 calculateTotal();
                 saveData(); 
                 
-                await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId));
+                if (isOffline) {
+                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                    offRecs = offRecs.filter(r => r.id !== recId);
+                    localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                    updateHistoryArray();
+                } else if (user && !user.isAnonymous && db) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId));
+                }
                 showToast("📝 คลี่บิลกลับมาทำต่อแล้ว");
                 closeUnfoldModal();
             };
@@ -967,7 +1128,7 @@
         });
 
 
-        // --- History Render (Edit inline + Budget) ---
+        // --- History Render ---
         function renderHistory() {
             const historyList = document.getElementById('history-list');
             if (historyData.length === 0) {
@@ -979,12 +1140,20 @@
                 const isExpanded = expandedReceiptId === receipt.id;
                 const formatThb = (n) => isNaN(n) ? '0' : Number(n).toLocaleString('th-TH');
                 
+                // สี Outline ของหน้าประวัติ (ออนไลน์ = เขียว, ออฟไลน์ = ฟ้า)
+                const borderClass = receipt.isOffline 
+                    ? 'border-blue-400 dark:border-blue-500 shadow-blue-100/50 dark:shadow-none' 
+                    : 'border-green-400 dark:border-green-500 shadow-green-100/50 dark:shadow-none';
+                
+                const uploadBtnHtml = (receipt.isOffline && user && !user.isAnonymous) 
+                    ? `<button class="upload-receipt-btn px-4 py-1.5 text-[10px] font-black text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-sm transition-all active:scale-95" data-id="${receipt.id}">☁️ อัปโหลด</button>` 
+                    : '';
+
                 let itemsHtml = '';
                 if (isExpanded) {
                     itemsHtml = `
                     <div class="p-3 bg-slate-50 dark:bg-darkBg/50 border-t border-slate-100 dark:border-green-900/30">
-                        
-                        <!-- Budget Edit in History -->
+                        <!-- Budget Edit -->
                         <div class="mb-4 flex items-center gap-2 bg-white dark:bg-darkCard p-2 sm:px-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50">
                             <span class="text-xl">💼</span>
                             <span class="text-[11px] sm:text-sm font-bold text-slate-600 dark:text-blue-200 whitespace-nowrap">งบประมาณบิลนี้:</span>
@@ -1006,7 +1175,6 @@
                                             <div class="text-right w-16 shrink-0 mr-1">
                                                  <div class="text-sm font-black text-fmGreen">${Math.ceil((item.price) * currentRate).toLocaleString()} ฿</div>
                                             </div>
-                                            <!-- Tools -->
                                             <div class="flex gap-1 pl-1 border-l border-slate-100 dark:border-slate-700 shrink-0">
                                                 <button class="hist-discount-btn w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 font-black text-sm" title="Discount">%</button>
                                                 <button class="hist-del-btn w-8 h-8 flex items-center justify-center rounded-lg border border-red-100 dark:border-red-900/30 text-red-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 text-sm transition-all" title="Delete">🗑️</button>
@@ -1021,17 +1189,18 @@
                                 </div>
                             `).join('')}
                         </div>
-                        <div class="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <div class="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-700">
+                            <div>${uploadBtnHtml}</div>
                             <button class="del-receipt-btn px-6 py-2 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl border border-red-200 dark:border-red-900/50 transition-colors shadow-sm" data-confirm="false">🗑️ ลบทิ้งบิลนี้</button>
                         </div>
                     </div>`;
                 }
 
                 return `
-                <div class="receipt-card bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-slate-200 dark:border-green-900/30 overflow-hidden transition-all duration-300" data-id="${receipt.id}">
+                <div class="receipt-card bg-white dark:bg-darkCard rounded-2xl shadow-sm border-2 ${borderClass} overflow-hidden transition-all duration-300" data-id="${receipt.id}" data-offline="${receipt.isOffline}">
                     <div class="receipt-header p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-green-900/10 flex justify-between items-center transition-colors">
                         <div>
-                            <div class="font-black text-slate-700 dark:text-green-300">${receipt.title}</div>
+                            <div class="font-black text-slate-700 dark:text-green-300">${receipt.title} ${receipt.isOffline ? '<span class="ml-1 text-[9px] bg-blue-100 text-blue-600 px-1.5 rounded-full uppercase">Offline</span>' : ''}</div>
                             <div class="text-[10px] sm:text-xs text-slate-400 font-bold mt-0.5">งบ: <span class="receipt-budget-display">${formatThb(receipt.budget)}</span> ฿ • ${receipt.items.length} ชิ้น</div>
                         </div>
                         <div class="text-right flex items-center gap-3 sm:gap-4">
@@ -1056,13 +1225,13 @@
             const row = target.closest('.history-item-row');
             if(!card || !row) return;
             const recId = card.dataset.id;
+            const isOffline = card.dataset.offline === 'true';
             const itemId = row.dataset.itemid;
             const receipt = historyData.find(r => r.id === recId);
             if (!receipt) return;
 
             const jpyIn = row.querySelector('.hist-jpy-input').value;
             const note = row.querySelector('.hist-note-input').value;
-            
             const discSlider = row.querySelector('.hist-discount-slider');
             const disc = discSlider ? (parseFloat(discSlider.value) || 0) : 0;
             
@@ -1070,27 +1239,35 @@
                 row.querySelector('.hist-discount-label').innerText = disc + '%';
             }
 
-            const rawVal = jpyIn;
             const val = evaluateMath(jpyIn);
             const finalPrice = val * (1 - disc / 100);
 
-            const newItems = receipt.items.map(i => i.id === itemId ? { ...i, rawVal: rawVal, price: finalPrice, name: note, discount: disc } : i);
+            const newItems = receipt.items.map(i => i.id === itemId ? { ...i, rawVal: jpyIn, price: finalPrice, name: note, discount: disc } : i);
             const newTotalJ = newItems.reduce((s, i) => s + parseFloat(i.price||0), 0);
             
             receipt.items = newItems; 
             receipt.totalJpy = newTotalJ; 
             receipt.totalThb = Math.ceil(newTotalJ * currentRate);
 
-            // Update Total Header Optimistically
             const headerTotal = card.querySelector('.receipt-total-display');
             if(headerTotal) headerTotal.innerText = receipt.totalThb.toLocaleString('th-TH');
-            
             const headerTotalJpy = card.querySelector('.receipt-total-jpy-display');
             if(headerTotalJpy) headerTotalJpy.innerText = receipt.totalJpy.toLocaleString('th-TH', {maximumFractionDigits: 2});
             
             clearTimeout(historyUpdateTimer);
             historyUpdateTimer = setTimeout(() => {
-                updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId), { items: newItems, totalJpy: newTotalJ, totalThb: receipt.totalThb });
+                if (isOffline) {
+                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                    const idx = offRecs.findIndex(r => r.id === recId);
+                    if (idx > -1) {
+                        offRecs[idx].items = newItems;
+                        offRecs[idx].totalJpy = newTotalJ;
+                        offRecs[idx].totalThb = receipt.totalThb;
+                        localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                    }
+                } else if (user && db) {
+                    updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId), { items: newItems, totalJpy: newTotalJ, totalThb: receipt.totalThb });
+                }
             }, 600);
         };
 
@@ -1099,34 +1276,67 @@
                 updateHistoryItem(e.target);
             } 
             else if (e.target.matches('.hist-budget-input')) {
-                // อัปเดตงบประมาณเฉพาะของบิลนั้นในประวัติ
                 const card = e.target.closest('.receipt-card');
                 if(!card) return;
                 const recId = card.dataset.id;
+                const isOffline = card.dataset.offline === 'true';
                 const receipt = historyData.find(r => r.id === recId);
                 if(!receipt) return;
 
                 const newBudget = evaluateMath(e.target.value);
                 receipt.budget = newBudget;
                 
-                // Update Budget Header Optimistically
                 const headerBudget = card.querySelector('.receipt-budget-display');
                 if(headerBudget) headerBudget.innerText = newBudget > 0 ? Number(newBudget).toLocaleString('th-TH') : '0';
 
                 clearTimeout(historyUpdateTimer);
                 historyUpdateTimer = setTimeout(() => {
-                    updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId), { budget: newBudget });
+                    if (isOffline) {
+                        let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                        const idx = offRecs.findIndex(r => r.id === recId);
+                        if (idx > -1) {
+                            offRecs[idx].budget = newBudget;
+                            localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                        }
+                    } else if (user && db) {
+                        updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId), { budget: newBudget });
+                    }
                 }, 600);
             }
         });
 
-        // History Actions
         document.getElementById('history-list').addEventListener('click', async (e) => {
             const card = e.target.closest('.receipt-card');
             if (!card) return;
             const recId = card.dataset.id;
+            const isOffline = card.dataset.offline === 'true';
             const receipt = historyData.find(r => r.id === recId);
             if (!receipt) return;
+
+            if (e.target.closest('.upload-receipt-btn')) {
+                // Upload Offline Receipt to Cloud
+                try {
+                    const btn = e.target.closest('.upload-receipt-btn');
+                    btn.innerText = 'กำลังอัปโหลด...';
+                    btn.classList.add('opacity-50');
+                    
+                    const rRef = doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', receipt.id);
+                    const cloudData = { ...receipt };
+                    delete cloudData.isOffline;
+                    
+                    await setDoc(rRef, cloudData);
+                    
+                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                    offRecs = offRecs.filter(r => r.id !== recId);
+                    localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                    
+                    showToast("☁️ อัปโหลดบิลขึ้น Cloud เรียบร้อย");
+                    // UI จะถูกอัปเดตอัตโนมัติผ่าน onSnapshot จาก listenToHistory (cloudData เข้า, updateHistoryArray เรียกใหม่)
+                } catch (err) {
+                    showToast("❌ อัปโหลดไม่สำเร็จ");
+                }
+                return;
+            }
 
             if (e.target.closest('.receipt-header')) {
                 expandedReceiptId = expandedReceiptId === recId ? null : recId;
@@ -1143,18 +1353,27 @@
                 const newItems = receipt.items.filter(i => i.id !== itemId);
                 const newTotalJ = newItems.reduce((s, i) => s + parseFloat(i.price||0), 0);
                 
-                // Optimistic UI update so it feels instant
                 receipt.items = newItems;
                 receipt.totalJpy = newTotalJ;
                 receipt.totalThb = Math.ceil(newTotalJ * currentRate);
+                
                 const headerTotal = card.querySelector('.receipt-total-display');
                 if(headerTotal) headerTotal.innerText = receipt.totalThb.toLocaleString('th-TH');
-                const headerTotalJpy = card.querySelector('.receipt-total-jpy-display');
-                if(headerTotalJpy) headerTotalJpy.innerText = receipt.totalJpy.toLocaleString('th-TH', {maximumFractionDigits: 2});
                 
                 e.target.closest('.history-item-row').remove();
                 
-                await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId), { items: newItems, totalJpy: newTotalJ, totalThb: receipt.totalThb });
+                if (isOffline) {
+                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                    const idx = offRecs.findIndex(r => r.id === recId);
+                    if (idx > -1) {
+                        offRecs[idx].items = newItems;
+                        offRecs[idx].totalJpy = newTotalJ;
+                        offRecs[idx].totalThb = receipt.totalThb;
+                        localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                    }
+                } else if (user && db) {
+                    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId), { items: newItems, totalJpy: newTotalJ, totalThb: receipt.totalThb });
+                }
             }
             else if (e.target.closest('.del-receipt-btn')) {
                 const btn = e.target.closest('.del-receipt-btn');
@@ -1164,8 +1383,16 @@
                     btn.classList.add('bg-red-500', 'text-white');
                     setTimeout(() => { if(btn) { btn.dataset.confirm = 'false'; btn.innerText = '🗑️ ลบทิ้งบิลนี้'; btn.classList.remove('bg-red-500', 'text-white'); } }, 2500);
                 } else {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId));
-                    showToast("🗑️ ลบบิลเรียบร้อย");
+                    if (isOffline) {
+                        let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
+                        offRecs = offRecs.filter(r => r.id !== recId);
+                        localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
+                        updateHistoryArray();
+                        showToast("🗑️ ลบบิลออฟไลน์เรียบร้อย");
+                    } else if (user && db) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', recId));
+                        showToast("🗑️ ลบบิลเรียบร้อย");
+                    }
                 }
             }
         });
