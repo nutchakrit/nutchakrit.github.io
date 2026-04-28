@@ -114,9 +114,9 @@
             
             <div class="flex flex-col sm:flex-row justify-between sm:items-center relative z-10 gap-4">
                 <div class="flex items-center gap-4">
-                    <div class="w-12 h-12 flex items-center justify-center bg-white/10 rounded-2xl border border-white/20 shadow-lg text-2xl group">
+                    <button id="logo-home-btn" class="w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 active:scale-95 rounded-2xl border border-white/20 shadow-lg text-2xl group transition-all outline-none cursor-pointer">
                         <span class="group-hover:scale-125 transition-transform">🏪</span>
-                    </div>
+                    </button>
                     <div class="text-left">
                         <h1 class="text-2xl sm:text-3xl font-black tracking-tight mb-0.5 flex items-baseline gap-2">NecoMart<span class="text-xs font-bold text-blue-200/60 tracking-widest bg-black/20 px-2 py-0.5 rounded-lg">Cloud</span></h1>
                         <div id="rate-display" class="text-green-100 text-[10px] sm:text-xs font-bold bg-black/10 inline-block px-3 py-0.5 rounded-full animate-pulse">กำลังดึงข้อมูลเรทเงิน...</div>
@@ -265,6 +265,7 @@
                         <h3 class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">เครื่องมือเปรียบเทียบ</h3>
                     </div>
                     <div class="flex gap-2">
+                        <button id="add-ticked-to-cart-btn" class="hidden bg-emerald-500 text-white text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-emerald-600 active:scale-95 transition-all shadow-sm">🛒 ใส่ตะกร้า</button>
                         <button id="add-compare-row-btn" class="bg-white dark:bg-darkCard text-emerald-600 border border-emerald-200 text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-emerald-50 active:scale-95 transition-all shadow-sm">+ เพิ่มของเทียบ</button>
                     </div>
                 </div>
@@ -283,7 +284,7 @@
                  </div>
              </div>
 
-             <div id="history-list" class="space-y-4">
+             <div id="history-list" class="space-y-4 pb-12">
                  <!-- Receipts injected here -->
              </div>
         </div>
@@ -317,7 +318,7 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'necomart-app';
         const html = document.documentElement;
 
-        // Firebase Config (Keep your original logic)
+        // Firebase Config
         const MY_FIREBASE_CONFIG = {
             apiKey: "AIzaSyD-Vgayvdkl165ZO6kYCfv2OOfvZHqB59g",
             authDomain: "necomart-github.firebaseapp.com",
@@ -393,6 +394,7 @@
         }
         tabActive.addEventListener('click', () => switchView('active'));
         tabHistory.addEventListener('click', () => switchView('history'));
+        document.getElementById('logo-home-btn').addEventListener('click', () => { window.location.href = '/'; });
 
         document.getElementById('theme-btn').addEventListener('click', () => {
             const isDark = html.classList.contains('dark'); 
@@ -434,6 +436,7 @@
                 } catch(e){ addCompareRow(); addCompareRow(); }
             } else { addCompareRow(); addCompareRow(); }
             
+            updateAddTickedButton();
             setTickboxImage(document.getElementById('compare-panel-tick'), isCompareOpen, 'brand');
             if (html.classList.contains('dark')) document.getElementById('theme-icon').innerText = '🌙'; 
             else document.getElementById('theme-icon').innerText = '☀️';
@@ -472,23 +475,12 @@
                         }
                     });
 
-                    // แก้ไขปุ่ม Logout
+                    // Logout แก้ให้ Refresh กลับไปโหมด Offline แน่นอนที่สุด
                     document.getElementById('logout-btn').addEventListener('click', async () => {
                         try {
+                            document.getElementById('logout-btn').innerText = "กำลังออก...";
                             await signOut(auth);
-                            
-                            // Reset State เป็น Offline
-                            user = null;
-                            isInitialLoad = true;
-                            document.getElementById('inputs-wrapper').innerHTML = '';
-                            document.getElementById('budget-input').value = '';
-                            addRowUI();
-                            calculateTotal();
-                            updateHistoryArray(); // โหลดประวัติ Offline แทน
-                            switchView('active');
-                            
-                            await signInAnonymously(auth); // กลับเป็น Anonymous
-                            showToast("👋 ออกจากระบบแล้ว (กลับสู่โหมดออฟไลน์)");
+                            setTimeout(() => { window.location.reload(); }, 300);
                         } catch (error) { console.error(error); }
                     });
 
@@ -568,7 +560,14 @@
         function updateHistoryArray(cloudDocs = []) {
             let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
             historyData = [...cloudDocs, ...offRecs].sort((a, b) => b.foldTime - a.foldTime);
-            if (viewHistory.style.display === 'block') renderHistory();
+            
+            // ป้องกันการ Render ทับถ้า User กำลังพิมพ์อยู่ในหน้าประวัติ
+            const activeEl = document.activeElement;
+            const isEditingHistory = activeEl && activeEl.closest('#history-list');
+
+            if (viewHistory.style.display === 'block' && !isEditingHistory) {
+                renderHistory();
+            }
         }
 
         // --- Firebase Listeners ---
@@ -608,7 +607,6 @@
                     isInitialLoad = false;
                 } else if (!document.getElementById('merge-modal').classList.contains('opacity-100')) {
                     // Update ปกติถ้าไม่ใช่ Initial หรือติด Modal อยู่
-                    // (กรณีเปิดหลายแท็บ ให้ฟังการเปลี่ยนแปลง แต่หลีกเลี่ยงการกระตุกขณะพิมพ์)
                 }
             }, (err) => console.error(err));
         }
@@ -645,18 +643,15 @@
         };
 
         document.getElementById('merge-combine-btn').addEventListener('click', () => {
-            // เอา Cloud ต่อด้วย Local
             const localActive = JSON.parse(localStorage.getItem('necomart_offline_active'));
             document.getElementById('inputs-wrapper').innerHTML = '';
             
-            // Render Cloud first
             if(pendingCloudData && pendingCloudData.items) {
                 pendingCloudData.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
                 if(pendingCloudData.budget) {
                     document.getElementById('budget-input').value = pendingCloudData.budget.val || '';
                 }
             }
-            // Append Local
             if(localActive && localActive.items) {
                 localActive.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
             }
@@ -668,7 +663,7 @@
 
         document.getElementById('merge-overwrite-btn').addEventListener('click', () => {
             loadOfflineActiveSession();
-            saveData(); // Overwrite Cloud
+            saveData(); 
             closeMergeModal();
             showToast("✅ ใช้ข้อมูลออฟไลน์ทับบนคลาวด์");
         });
@@ -716,7 +711,7 @@
             });
             const compareData = { isOpen: isCompareOpen, rows: compareRows };
             
-            localStorage.setItem('necomaid_calc_data', JSON.stringify({ budgetData, compareData })); // For Compare UI mainly
+            localStorage.setItem('necomaid_calc_data', JSON.stringify({ budgetData, compareData }));
 
             const hasItems = rows.some(r => r.val > 0);
             document.getElementById('fold-bill-container').style.display = hasItems ? 'block' : 'none';
@@ -733,7 +728,7 @@
             }
         });
 
-        // --- Universal Add Row UI (Updated Keyboard Logic) ---
+        // --- Universal Add Row UI ---
         const addRowUI = safeRun((val = '', isH = false, disc = '0', note = '', ts = null, rowId = null, skipSave = false) => {
             const rId = rowId || Date.now().toString() + Math.random().toString(36).substr(2, 5);
             const timestamp = ts || Date.now();
@@ -790,7 +785,6 @@
 
             inputPrice.addEventListener('input', () => calculateTotal());
             
-            // คีย์บอร์ด (ราคา)
             inputPrice.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -798,18 +792,13 @@
                     const idx = allPrices.indexOf(inputPrice);
                     
                     if (idx < allPrices.length - 1) {
-                        // เลื่อนไปราคากล่องถัดไป
                         allPrices[idx + 1].focus();
                     } else {
-                        // กล่องสุดท้าย
-                        if (inputPrice.value !== '') {
-                            addRowUI(); // จะ focus อัตโนมัติใน addRowUI
-                        }
+                        if (inputPrice.value !== '') addRowUI();
                     }
                 }
             });
 
-            // การจัดการปุ่ม Note สำหรับมือถือ
             toggleNoteBtn.addEventListener('click', () => {
                 mobileNoteCont.classList.toggle('hidden');
                 if (!mobileNoteCont.classList.contains('hidden')) noteM.focus();
@@ -821,16 +810,14 @@
             noteD.addEventListener('input', (e) => handleNoteChange(e.target.value));
             noteM.addEventListener('input', (e) => handleNoteChange(e.target.value));
             
-            // คีย์บอร์ด (Note บนคอม)
             noteD.addEventListener('keydown', (e) => { 
                 if (e.key === 'Tab') {
                     const allNotes = Array.from(wrapper.querySelectorAll('.note-input-desktop'));
                     const idx = allNotes.indexOf(noteD);
                     if (idx === allNotes.length - 1) {
                         e.preventDefault(); 
-                        addRowUI(); // ถ้า Tab ที่โน้ตสุดท้าย ให้สร้างแถวใหม่แล้วโฟกัสราคา
+                        addRowUI(); 
                     }
-                    // ถ้าไม่ใช่กล่องสุดท้าย Tab default จะไปตกที่ Focus btn หรือ ราคาถัดไปได้เอง
                 } else if (e.key === 'Enter') { 
                     e.preventDefault();
                     const allPrices = Array.from(wrapper.querySelectorAll('.jpy-input'));
@@ -845,7 +832,6 @@
                 } 
             });
 
-            // คีย์บอร์ด (Note บนมือถือ)
             noteM.addEventListener('keydown', (e) => { 
                 if (e.key === 'Enter') { 
                     e.preventDefault(); 
@@ -879,7 +865,6 @@
             });
 
             if(!skipSave) {
-                // Focus newly created input
                 inputPrice.focus();
                 saveData();
             }
@@ -1006,11 +991,9 @@
                 }
 
                 if (user && !user.isAnonymous && db) {
-                    // Online Save
                     const rRef = doc(db, 'artifacts', appId, 'users', user.uid, 'receipts', receiptData.id);
                     await setDoc(rRef, receiptData);
                 } else {
-                    // Offline Save
                     receiptData.isOffline = true;
                     let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts') || '[]');
                     offRecs.push(receiptData);
@@ -1020,7 +1003,7 @@
                 
                 document.getElementById('inputs-wrapper').innerHTML = '';
                 document.getElementById('budget-input').value = '';
-                localStorage.removeItem('necomart_offline_active'); // Clear offline active if folded
+                localStorage.removeItem('necomart_offline_active');
                 
                 addRowUI();
                 calculateTotal();
@@ -1049,7 +1032,6 @@
             prompt.classList.remove('flex');
         });
         document.getElementById('fold-old-session-btn').addEventListener('click', (e) => performFoldLogic(e.currentTarget));
-
 
         // --- Unfold Modal Logic ---
         const unfoldModal = document.getElementById('unfold-modal');
@@ -1127,7 +1109,6 @@
             }
         });
 
-
         // --- History Render ---
         function renderHistory() {
             const historyList = document.getElementById('history-list');
@@ -1140,7 +1121,6 @@
                 const isExpanded = expandedReceiptId === receipt.id;
                 const formatThb = (n) => isNaN(n) ? '0' : Number(n).toLocaleString('th-TH');
                 
-                // สี Outline ของหน้าประวัติ (ออนไลน์ = เขียว, ออฟไลน์ = ฟ้า)
                 const borderClass = receipt.isOffline 
                     ? 'border-blue-400 dark:border-blue-500 shadow-blue-100/50 dark:shadow-none' 
                     : 'border-green-400 dark:border-green-500 shadow-green-100/50 dark:shadow-none';
@@ -1153,13 +1133,11 @@
                 if (isExpanded) {
                     itemsHtml = `
                     <div class="p-3 bg-slate-50 dark:bg-darkBg/50 border-t border-slate-100 dark:border-green-900/30">
-                        <!-- Budget Edit -->
                         <div class="mb-4 flex items-center gap-2 bg-white dark:bg-darkCard p-2 sm:px-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50">
                             <span class="text-xl">💼</span>
                             <span class="text-[11px] sm:text-sm font-bold text-slate-600 dark:text-blue-200 whitespace-nowrap">งบประมาณบิลนี้:</span>
                             <input type="text" inputmode="decimal" value="${receipt.budget || ''}" placeholder="ระบุตัวเลข" class="hist-budget-input w-full bg-transparent text-sm sm:text-base font-black text-slate-800 dark:text-blue-100 outline-none text-right focus:text-fmGreen transition-colors">
                         </div>
-
                         <div class="space-y-2 mb-4">
                             ${receipt.items.map(item => `
                                 <div class="history-item-row flex flex-col gap-2 bg-white dark:bg-darkCard p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50" data-itemid="${item.id}">
@@ -1219,6 +1197,17 @@
 
         // --- History Editor Events ---
         let historyUpdateTimer = null;
+
+        // วาดหน้าประวัติใหม่หากไม่ได้กำลังพิมพ์อยู่ (ป้องกันคีย์บอร์ดพับ)
+        document.getElementById('history-list').addEventListener('focusout', (e) => {
+            setTimeout(() => {
+                const activeEl = document.activeElement;
+                const isEditingHistory = activeEl && activeEl.closest('#history-list');
+                if (!isEditingHistory && viewHistory.style.display === 'block') {
+                    renderHistory();
+                }
+            }, 50);
+        });
 
         const updateHistoryItem = (target) => {
             const card = target.closest('.receipt-card');
@@ -1314,7 +1303,6 @@
             if (!receipt) return;
 
             if (e.target.closest('.upload-receipt-btn')) {
-                // Upload Offline Receipt to Cloud
                 try {
                     const btn = e.target.closest('.upload-receipt-btn');
                     btn.innerText = 'กำลังอัปโหลด...';
@@ -1331,7 +1319,6 @@
                     localStorage.setItem('necomart_offline_receipts', JSON.stringify(offRecs));
                     
                     showToast("☁️ อัปโหลดบิลขึ้น Cloud เรียบร้อย");
-                    // UI จะถูกอัปเดตอัตโนมัติผ่าน onSnapshot จาก listenToHistory (cloudData เข้า, updateHistoryArray เรียกใหม่)
                 } catch (err) {
                     showToast("❌ อัปโหลดไม่สำเร็จ");
                 }
@@ -1396,7 +1383,6 @@
                 }
             }
         });
-
 
         function updateFocusStyles() {
             document.getElementById('inputs-wrapper').querySelectorAll('.row-container').forEach(row => {
@@ -1465,6 +1451,31 @@
         }
         document.getElementById('toggle-compare-btn').addEventListener('click', safeRun(() => toggleComparePanel()));
 
+        function updateAddTickedButton() {
+            const hasTicked = document.querySelectorAll('.compare-row[data-ticked="true"]').length > 0;
+            const btn = document.getElementById('add-ticked-to-cart-btn');
+            if(hasTicked) { btn.classList.remove('hidden'); } else { btn.classList.add('hidden'); }
+        }
+
+        document.getElementById('add-ticked-to-cart-btn').addEventListener('click', () => {
+            const tickedRows = document.querySelectorAll('.compare-row[data-ticked="true"]');
+            let count = 0;
+            tickedRows.forEach(row => {
+                const price = evaluateMath(row.querySelector('.comp-price').value);
+                if (price > 0) {
+                    addRowUI(price.toString(), false, '0', 'สินค้าเปรียบเทียบราคา', null, null, false);
+                    count++;
+                    row.dataset.ticked = 'false';
+                    setTickboxImage(row.querySelector('.comp-tick-img'), false, 'emerald');
+                }
+            });
+            updateAddTickedButton();
+            if (count > 0) {
+                showToast(`🛒 นำ ${count} รายการที่เลือกใส่ตะกร้าแล้ว!`);
+                calculateTotal();
+            }
+        });
+
         const addCompareRow = safeRun((price = '', qty = '', ticked = false) => {
             const row = document.createElement('div');
             row.className = 'compare-row grid grid-cols-[auto_1fr_1fr_auto_24px] gap-1 sm:gap-2 items-center bg-white dark:bg-darkCard p-2 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 transition-all';
@@ -1484,49 +1495,56 @@
             pIn.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    if (window.innerWidth < 640) pIn.blur();
-                    else qIn.focus();
+                    qIn.focus();
                 }
             });
 
             qIn.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
-                    if (e.ctrlKey || e.metaKey) {
-                        e.preventDefault();
-                        addCompareRow();
-                        const newAllP = document.querySelectorAll('.comp-price');
-                        if (window.innerWidth >= 640) newAllP[newAllP.length - 1].focus();
-                        return;
-                    }
                     e.preventDefault();
-                    const allQ = document.querySelectorAll('.comp-qty');
-                    const allP = document.querySelectorAll('.comp-price');
-                    const idx = Array.from(allQ).indexOf(qIn);
-                    const isLast = idx === allQ.length - 1;
-
-                    if (window.innerWidth < 640) {
-                        qIn.blur(); 
-                        if(isLast && qIn.value !== '') addCompareRow();
+                    const allQ = Array.from(document.querySelectorAll('.comp-qty'));
+                    const allP = Array.from(document.querySelectorAll('.comp-price'));
+                    const idx = allQ.indexOf(qIn);
+                    
+                    if (idx < allQ.length - 1) {
+                        allP[idx + 1].focus();
                     } else {
-                        if(isLast && qIn.value !== '') {
+                        if (qIn.value !== '') {
                             addCompareRow();
                             const newAllP = document.querySelectorAll('.comp-price');
                             newAllP[newAllP.length - 1].focus();
-                        }
-                        else if(!isLast) {
-                            allP[idx + 1].focus();
                         }
                     }
                 }
             });
 
-            tBtn.addEventListener('click', () => { const isT = row.dataset.ticked === 'true'; row.dataset.ticked = !isT; setTickboxImage(row.querySelector('.comp-tick-img'), !isT, 'emerald'); saveData(); });
-            delBtn.addEventListener('click', safeRun(() => { if (document.querySelectorAll('.compare-row').length > 1) { row.remove(); calculateCompare(); saveData(); } else { pIn.value = qIn.value = ''; row.dataset.ticked = 'false'; setTickboxImage(row.querySelector('.comp-tick-img'), false, 'emerald'); calculateCompare(); saveData(); } }));
+            tBtn.addEventListener('click', () => { 
+                const isT = row.dataset.ticked === 'true'; 
+                row.dataset.ticked = !isT; 
+                setTickboxImage(row.querySelector('.comp-tick-img'), !isT, 'emerald'); 
+                updateAddTickedButton();
+                saveData(); 
+            });
+            
+            delBtn.addEventListener('click', safeRun(() => { 
+                if (document.querySelectorAll('.compare-row').length > 1) { 
+                    row.remove(); 
+                } else { 
+                    pIn.value = qIn.value = ''; 
+                    row.dataset.ticked = 'false'; 
+                    setTickboxImage(row.querySelector('.comp-tick-img'), false, 'emerald'); 
+                }
+                calculateCompare(); 
+                updateAddTickedButton();
+                saveData(); 
+            }));
+            
             document.getElementById('compare-list').appendChild(row);
             setTickboxImage(row.querySelector('.comp-tick-img'), ticked, 'emerald');
             saveData();
         });
         document.getElementById('add-compare-row-btn').addEventListener('click', safeRun(() => addCompareRow()));
+        
         const calculateCompare = safeRun(() => {
             const rows = document.querySelectorAll('.compare-row'); let minU = Infinity, bests = [];
             rows.forEach(row => {
