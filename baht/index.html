@@ -8,7 +8,19 @@
     <!-- ===== PWA Meta Tags ===== -->
     <meta name="theme-color" content="#00a650">
     <link rel="apple-touch-icon" href="./icon-192.png">
+    <link rel="manifest" href="./manifest.json">
     
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker ลงทะเบียนสำเร็จ', reg.scope))
+                    .catch(err => console.error('Service Worker ลงทะเบียนไม่สำเร็จ:', err));
+            });
+        }
+    </script>
+
     <script>
         (function() {
             const savedTheme = localStorage.getItem('theme_thb');
@@ -200,9 +212,9 @@
                 </div>
             </div>
 
-            <!-- 4. Wallet -->
+            <!-- 4. Wallet (แสดงเป็นเงินเยน) -->
             <div class="bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-900/30 rounded-3xl p-6 md:p-8 mb-8 relative shadow-inner transition-all duration-500">
-                <div id="wallet-title" class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-white dark:bg-green-900 px-4 py-1.5 border-2 border-green-200 dark:border-green-700 rounded-full text-[10px] font-black text-green-700 dark:text-green-200 tracking-widest shadow-sm whitespace-nowrap z-20 transition-all uppercase">เงินที่ต้องเตรียม (ปัดเศษขึ้น)</div>
+                <div id="wallet-title" class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-white dark:bg-green-900 px-4 py-1.5 border-2 border-green-200 dark:border-green-700 rounded-full text-[10px] font-black text-green-700 dark:text-green-200 tracking-widest shadow-sm whitespace-nowrap z-20 transition-all uppercase">เงินเยน (¥) ที่ต้องเตรียม</div>
                 <div id="wallet-container" class="flex flex-wrap gap-4 md:gap-6 justify-center items-center min-h-[120px] mt-2"></div>
             </div>
 
@@ -315,7 +327,8 @@
         window.isCompareOpen = false;
         let isCompareOpen = false; 
         
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'necomart-app';
+        const rawAppId = typeof __app_id !== 'undefined' ? String(__app_id) : 'necomart-app';
+        const appId = rawAppId.replace(/[\/\.]/g, '-');
         const html = document.documentElement;
 
         // Firebase Config
@@ -894,7 +907,7 @@
                     else { 
                         totalBase += val; 
                         disp.innerHTML = `<span class="text-fmGreen font-black">${rConverted.toFixed(1)} ¥</span>`; 
-                        if (rId === focusedRowId) targetPrep = Math.ceil(val); // กระเป๋าตังค์เตรียมเป็นบาท 
+                        if (rId === focusedRowId) targetPrep = Math.ceil(rConverted); // กระเป๋าตังค์โฟกัสคำนวณเป็นเยน
                     }
                 } else disp.innerText = "";
             });
@@ -907,22 +920,22 @@
 
             currentGlobalTotalBase = totalBase; 
             currentGlobalTotalConverted = totalConverted;
-            if (!focusedRowId) targetPrep = totalBase;
+            if (!focusedRowId) targetPrep = totalConverted; // กระเป๋าตังค์รวมคำนวณเป็นเยน
             
-            // Render Coins/Bills (ธนบัตรและเหรียญไทย)
+            // Render Coins/Bills (ธนบัตรและเหรียญญี่ปุ่น 10000, 5000, 1000...)
             const walletContainer = document.getElementById('wallet-container');
             walletContainer.innerHTML = '';
             const emptyWalletTpl = document.getElementById('empty-wallet-template');
             const denominations = [
-                { val: 1000, type: 'bill', css: 'from-slate-300 to-slate-400 border-slate-500 text-slate-800' },
-                { val: 500, type: 'bill', css: 'from-purple-300 to-purple-400 border-purple-500 text-purple-900' },
-                { val: 100, type: 'bill', css: 'from-red-300 to-red-400 border-red-500 text-red-900' },
-                { val: 50, type: 'bill', css: 'from-blue-300 to-blue-400 border-blue-500 text-blue-900' },
-                { val: 20, type: 'bill', css: 'from-green-300 to-green-400 border-green-500 text-green-900' },
-                { val: 10, type: 'coin', css: 'bg-gradient-to-br from-yellow-300 to-amber-500 border-4 border-slate-300 text-slate-900' },
-                { val: 5, type: 'coin', css: 'bg-gradient-to-br from-slate-100 to-slate-200 border-[3px] border-slate-400 text-slate-800' },
-                { val: 2, type: 'coin', css: 'bg-gradient-to-br from-yellow-400 to-amber-600 border-[2px] border-amber-300 text-amber-900' },
-                { val: 1, type: 'coin', css: 'bg-gradient-to-br from-zinc-50 to-zinc-100 border-[2px] border-zinc-300 text-zinc-700' }
+                { val: 10000, type: 'bill', css: 'from-amber-100 to-orange-100 border-amber-300 text-amber-900' },
+                { val: 5000, type: 'bill', css: 'from-purple-100 to-fuchsia-100 border-purple-300 text-purple-900' },
+                { val: 1000, type: 'bill', css: 'from-blue-100 to-cyan-100 border-blue-300 text-blue-900' },
+                { val: 500, type: 'coin', css: 'bg-gradient-to-br from-yellow-100 to-yellow-300 border-[3px] border-yellow-400 text-yellow-800' },
+                { val: 100, type: 'coin', css: 'bg-gradient-to-br from-slate-100 to-slate-200 border-[3px] border-slate-300 text-slate-700' },
+                { val: 50, type: 'coin', css: 'bg-gradient-to-br from-zinc-100 to-zinc-300 border-[3px] border-zinc-400 text-zinc-800' },
+                { val: 10, type: 'coin', css: 'bg-gradient-to-br from-yellow-600 to-yellow-700 border-[2px] border-yellow-800 text-white' },
+                { val: 5, type: 'coin', css: 'bg-gradient-to-br from-yellow-300 to-yellow-500 border-[2px] border-yellow-600 text-yellow-900' },
+                { val: 1, type: 'coin', css: 'bg-gradient-to-br from-slate-300 to-slate-400 border-[2px] border-slate-500 text-slate-800' }
             ];
             
             const createMoneyStack = (denom, count, delay) => {
@@ -932,13 +945,13 @@
                     const el = document.createElement('div'); el.className = (i === 0 ? 'relative' : 'absolute top-0 left-0') + ' flex items-center justify-center font-black border-black/10';
                     if (i !== 0) el.style.transform = `translateY(${i * (isC ? -4 : 6)}px)`; el.style.zIndex = isC ? 10 + i : 20 - i;
                     if (!isC) { el.className += ` paper-bill w-20 sm:w-28 rounded bg-gradient-to-br border ${denom.css}`; el.innerHTML = `<span>${denom.val}</span>`; } 
-                    else { const size = denom.val === 10 ? 'w-12 h-12' : 'w-10 h-10'; el.className += ` coin-metal rounded-full ${size} ${denom.css}`; if (i === count-1) el.innerHTML = `<span class="text-xs">${denom.val}</span>`; }
+                    else { const size = denom.val === 500 ? 'w-14 h-14' : denom.val >= 50 ? 'w-12 h-12' : 'w-10 h-10'; el.className += ` coin-metal rounded-full ${size} ${denom.css}`; if (i === count-1) el.innerHTML = `<span class="text-xs">${denom.val}</span>`; }
                     wrap.appendChild(el);
                 }
                 return wrap;
             };
 
-            // แสดงกระเป๋าตังค์อิงตาม targetPrep (ยอดรวมบาท)
+            // แสดงกระเป๋าตังค์อิงตาม targetPrep (ยอดรวมเยน)
             if (targetPrep > 0) {
                 let rem = Math.ceil(targetPrep), idx = 0;
                 denominations.forEach(d => { let c = Math.floor(rem / d.val); if (c > 0) { rem %= d.val; while (c > 0) { let s = Math.min(c, 5); walletContainer.appendChild(createMoneyStack(d, s, idx++)); c -= s; } } });
@@ -1400,7 +1413,7 @@
                 row.classList.toggle('ring-2', isF); row.classList.toggle('ring-fmGreen', isF);
                 row.querySelector('.focus-btn').classList.toggle('bg-mainBrand', isF); row.querySelector('.focus-btn').classList.toggle('text-white', isF);
             });
-            document.getElementById('wallet-title').innerText = focusedRowId ? "🎯 โฟกัสรายการเฉพาะส่วน" : "เงินที่ต้องเตรียม (ปัดเศษขึ้น)";
+            document.getElementById('wallet-title').innerText = focusedRowId ? "🎯 โฟกัสรายการเฉพาะส่วน" : "เงินเยน (¥) ที่ต้องเตรียม";
         }
 
         const updateBudgetUI = safeRun(() => {
