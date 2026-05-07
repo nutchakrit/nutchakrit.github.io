@@ -1,0 +1,44 @@
+{
+  "name": "make-simulator",
+  "short_name": "make-simulator",
+  "description": "คำนวณเงินเยนและจัดการงบประมาณสไตล์ Make",
+  "lang": "th",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#4F46E5",
+  "background_color": "#0f172a",
+  "categories": ["finance", "utilities"],
+  "icons": [
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "เปิดเครื่องคิดเลข",
+      "short_name": "คิดเลข",
+      "description": "เปิดแอปคำนวณราคาสินค้า (make-simulator)",
+      "url": "./index.html",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "เปิดกระเป๋าเงิน",
+      "short_name": "กระเป๋าเงิน",
+      "description": "จัดการงบประมาณทริป (make-simulator)",
+      "url": "./pocket.html",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
