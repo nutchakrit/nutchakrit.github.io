@@ -275,40 +275,41 @@
         <div class="relative transform scale-95 transition-transform duration-300 w-full max-w-[340px]" id="receipt-modal-content">
             
             <!-- Receipt Paper -->
-            <div id="receipt-paper" class="bg-white text-slate-800 p-6 rounded-t-lg relative shadow-2xl" style="font-family: 'Courier New', Courier, monospace;">
-                <div class="text-center font-black text-2xl mb-1 flex items-center justify-center gap-2">
+            <!-- แก้ไข font-family และเพิ่ม line-height เพื่อป้องกันปัญหาตัวอักษรไทยขาดตอน Render เป็นภาพ -->
+            <div id="receipt-paper" class="bg-white text-slate-800 p-6 rounded-t-lg relative shadow-2xl" style="font-family: 'Courier New', Courier, 'Prompt', monospace; line-height: 1.6;">
+                <div class="text-center font-black text-2xl mb-1 flex items-center justify-center gap-2 leading-relaxed">
                     <span>☁️</span> <span>PocketPlanning</span>
                 </div>
-                <div class="text-center text-xs text-slate-500 mb-4 font-bold">--- สรุปการจัดสรรงบประมาณ ---</div>
+                <div class="text-center text-xs text-slate-500 mb-4 font-bold leading-relaxed">--- สรุปการจัดสรรงบประมาณ ---</div>
                 
-                <div class="text-xs mb-3 border-b-2 border-dashed border-slate-300 pb-3 flex justify-between font-bold">
+                <div class="text-xs mb-3 border-b-2 border-dashed border-slate-300 pb-3 flex justify-between font-bold leading-relaxed">
                     <span id="receipt-date">วันที่: --</span>
                     <span id="receipt-time">เวลา: --</span>
                 </div>
 
-                <div class="flex justify-between font-bold text-sm mt-3">
+                <div class="flex justify-between font-bold text-sm mt-3 leading-relaxed">
                     <span>งบประมาณตั้งต้น</span>
                     <span id="receipt-total" class="text-right">฿0.00</span>
                 </div>
 
                 <div class="my-3 border-b-2 border-dashed border-slate-300"></div>
 
-                <div class="text-xs font-bold mb-2">รายการกระเป๋า (Pockets):</div>
+                <div class="text-xs font-bold mb-2 leading-relaxed">รายการกระเป๋า (Pockets):</div>
                 <div id="receipt-pockets" class="space-y-3 text-sm font-bold">
                     <!-- Injected -->
                 </div>
 
                 <div class="my-3 border-b-2 border-dashed border-slate-300"></div>
 
-                <div class="flex justify-between text-sm font-bold">
+                <div class="flex justify-between text-sm font-bold leading-relaxed">
                     <span>จัดสรรแล้วทั้งหมด</span>
                     <span id="receipt-allocated" class="text-right">฿0.00</span>
                 </div>
-                <div class="flex justify-between font-black text-lg mt-2 text-indigo-600">
+                <div class="flex justify-between font-black text-lg mt-2 text-indigo-600 leading-relaxed">
                     <span>เงินรอจัดสรร</span>
                     <span id="receipt-unallocated" class="text-right">฿0.00</span>
                 </div>
-                <div class="text-right text-xs font-bold text-emerald-600 mt-1" id="receipt-unallocated-jpy">
+                <div class="text-right text-xs font-bold text-emerald-600 mt-1 leading-relaxed" id="receipt-unallocated-jpy">
                     (≈ ¥0)
                 </div>
 
@@ -997,14 +998,15 @@
             let allocated = 0;
             let pocketsHtml = '';
             
+            // นำ truncate ออก และเพิ่ม leading-relaxed เพื่อแก้ตัวอักษรขาด 
             appData.pockets.forEach(p => {
                 allocated += p.balance || 0;
                 const jpy = convertThbToJpy(p.balance || 0);
                 pocketsHtml += `
-                    <div class="flex flex-col mb-1.5">
-                        <div class="flex justify-between">
-                            <span class="truncate pr-2">${p.icon} ${p.name}</span>
-                            <span>฿${formatNum(p.balance || 0)}</span>
+                    <div class="flex flex-col mb-2">
+                        <div class="flex justify-between items-start">
+                            <span class="break-words leading-relaxed flex-1 pr-2">${p.icon} ${p.name}</span>
+                            <span class="leading-relaxed whitespace-nowrap">฿${formatNum(p.balance || 0)}</span>
                         </div>
                         <div class="text-right text-[10px] text-slate-500 font-normal">≈ ¥${formatNum(jpy)}</div>
                     </div>
