@@ -282,9 +282,12 @@
                 </div>
                 <div class="text-center text-xs text-slate-500 mb-4 font-bold leading-relaxed">--- สรุปการจัดสรรงบประมาณ ---</div>
                 
-                <div class="text-xs mb-3 border-b-2 border-dashed border-slate-300 pb-3 flex justify-between font-bold leading-relaxed">
-                    <span id="receipt-date">วันที่: --</span>
-                    <span id="receipt-time">เวลา: --</span>
+                <div class="text-xs mb-3 border-b-2 border-dashed border-slate-300 pb-3 flex flex-col gap-1.5 font-bold leading-relaxed">
+                    <div class="flex justify-between">
+                        <span id="receipt-date">วันที่: --</span>
+                        <span id="receipt-time">เวลา: --</span>
+                    </div>
+                    <div class="text-center text-[10px] text-slate-500" id="receipt-exchange-rate">เรทอ้างอิง: 100¥ = ฿0.00</div>
                 </div>
 
                 <div class="flex justify-between font-bold text-sm mt-3 leading-relaxed">
@@ -993,6 +996,11 @@
             
             document.getElementById('receipt-date').innerText = `วันที่: ${dateStr}`;
             document.getElementById('receipt-time').innerText = `เวลา: ${timeStr}`;
+            
+            // เพิ่มเรทอ้างอิง
+            const rate100 = (jpyToThbRate * 100).toFixed(2);
+            document.getElementById('receipt-exchange-rate').innerText = `เรทอ้างอิง: 100¥ = ฿${rate100}`;
+            
             document.getElementById('receipt-total').innerText = `฿${formatNum(appData.totalBudget)}`;
 
             let allocated = 0;
