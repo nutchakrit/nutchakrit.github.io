@@ -15,14 +15,13 @@
   import { getFirestore, doc, setDoc, getDoc, onSnapshot }
     from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  // ── กรอก Firebase config ของตัวเองตรงนี้ ──
   const firebaseConfig = {
-    apiKey:            "YOUR_API_KEY",
-    authDomain:        "YOUR_PROJECT.firebaseapp.com",
-    projectId:         "YOUR_PROJECT_ID",
-    storageBucket:     "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId:             "YOUR_APP_ID"
+    apiKey:            "AIzaSyD-Vgayvdkl165ZO6kYCfv2OOfvZHqB59g",
+    authDomain:        "necomart-github.firebaseapp.com",
+    projectId:         "necomart-github",
+    storageBucket:     "necomart-github.firebasestorage.app",
+    messagingSenderId: "181730496545",
+    appId:             "1:181730496545:web:022815a30d6aafd4c65360"
   };
 
   let app, auth, db, currentUser = null, unsubSnap = null;
