@@ -1,1712 +1,819 @@
 <!DOCTYPE html>
-<html lang="th" class="transition-colors duration-500">
+<html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NecoMart - THB Edition</title>
-    
-    <!-- ===== PWA Meta Tags ===== -->
-    <meta name="theme-color" content="#00a650">
-    <link rel="apple-touch-icon" href="./icon-192.png">
-    <link rel="manifest" href="./manifest.json">
-    
-    <!-- PWA Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.protocol === 'http:')) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('Service Worker ลงทะเบียนสำเร็จ', reg.scope))
-                    .catch(err => console.error('Service Worker ลงทะเบียนไม่สำเร็จ:', err));
-            });
-        }
-    </script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NecoPay — หารค่าใช้จ่าย</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;300;400;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot }
+    from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    <script>
-        (function() {
-            const savedTheme = localStorage.getItem('theme_thb');
-            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
-                document.documentElement.classList.add('dark');
+  // ── กรอก Firebase config ของตัวเองตรงนี้ ──
+  const firebaseConfig = {
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT.firebaseapp.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId:             "YOUR_APP_ID"
+  };
+
+  let app, auth, db, currentUser = null, unsubSnap = null;
+
+  try {
+    app  = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db   = getFirestore(app);
+    window._fbReady = true;
+  } catch(e) {
+    console.warn('Firebase init failed (config ยังไม่ได้ตั้ง):', e.message);
+    window._fbReady = false;
+  }
+
+  if (window._fbReady) {
+    onAuthStateChanged(auth, async user => {
+      currentUser = user;
+      if (user) {
+        // Logged in
+        document.getElementById('auth-login-btn').classList.add('hidden');
+        const wrap = document.getElementById('auth-user-wrap');
+        wrap.style.display = 'flex';
+        wrap.classList.remove('hidden');
+        document.getElementById('auth-avatar').src = user.photoURL || '';
+        document.getElementById('auth-name').textContent = user.displayName?.split(' ')[0] || 'ผู้ใช้';
+        // ── Listen to cloud sessions ──
+        if (unsubSnap) unsubSnap();
+        unsubSnap = onSnapshot(doc(db, 'necoPay_users', user.uid), snap => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.sessions) {
+              window._cloudSessions = data.sessions;
+              // Merge: cloud takes priority for sessions, keep local draft as-is
+              const localIds = new Set((window._localSessions||[]).map(s=>s.id));
+              const merged = [...data.sessions];
+              (window._localSessions||[]).forEach(s => { if(!localIds.has(s.id)) merged.push(s); });
+              sessions = merged.sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,30);
+              localStorage.setItem('necoPay_sessions', JSON.stringify(sessions));
             }
-        })();
-    </script>
+          }
+        });
+      } else {
+        // Logged out
+        document.getElementById('auth-login-btn').classList.remove('hidden');
+        const wrap = document.getElementById('auth-user-wrap');
+        wrap.style.display = 'none';
+        wrap.classList.add('hidden');
+        if (unsubSnap) { unsubSnap(); unsubSnap = null; }
+      }
+    });
 
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;300;400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- เพิ่ม html2canvas สำหรับสร้างรูปใบเสร็จ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    window.googleLogin = async () => {
+      try {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        showToast('✅ เข้าสู่ระบบแล้ว!');
+      } catch(e) { showToast('❌ Login ไม่สำเร็จ: ' + e.message); }
+    };
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { 
-                        sans: ['Sarabun', 'sans-serif'],
-                        mono: ['Space Mono', 'Sarabun', 'monospace'] // เพิ่มฟอนต์ใบเสร็จ
-                    },
-                    colors: {
-                        mainBrand: '#00a650',
-                        fmGreen: '#00a650',
-                        darkBg: '#00102e',
-                        darkCard: '#001a40',
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body { -webkit-font-smoothing: antialiased; }
-        .hide-arrows::-webkit-outer-spin-button, .hide-arrows::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        .hide-arrows { -moz-appearance: textfield; appearance: textfield; }
+    window.googleLogout = async () => {
+      await signOut(auth);
+      showToast('👋 ออกจากระบบแล้ว');
+    };
 
-        @keyframes popIn { 0% { transform: scale(0.5) translateY(10px); opacity: 0; } 70% { transform: scale(1.05) translateY(-2px); opacity: 1; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
-        .animate-pop { opacity: 0; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-        
-        .paper-bill { aspect-ratio: 2 / 1; box-shadow: 0px 3px 5px rgba(0, 0, 0, 0.2), inset 0 0 0 1px rgba(255,255,255,0.4); background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.05) 10px, rgba(255,255,255,0.05) 20px); }
-        .coin-metal { box-shadow: 0px 4px 5px rgba(0, 0, 0, 0.3), inset 0 -3px 4px rgba(0,0,0,0.1), inset 0 2px 4px rgba(255,255,255,0.7); }
+    // Expose save-to-cloud
+    window.saveToCloud = async (sessionList) => {
+      if (!currentUser) return;
+      try {
+        await setDoc(doc(db, 'necoPay_users', currentUser.uid), { sessions: sessionList }, { merge: true });
+      } catch(e) { console.warn('Cloud save failed:', e.message); }
+    };
+  } else {
+    window.googleLogin  = () => showToast('⚠️ ตั้งค่า Firebase config ก่อนนะ!');
+    window.googleLogout = () => {};
+    window.saveToCloud  = () => {};
+  }
+</script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Sarabun','sans-serif'], mono: ['Space Mono','Sarabun','monospace'] },
+        colors: {
+          brand: '#00a650',
+          darkBg: '#00102e',
+          darkCard: '#001a40',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { -webkit-font-smoothing:antialiased; }
+  @keyframes popIn { 0%{transform:scale(.5) translateY(10px);opacity:0} 70%{transform:scale(1.05) translateY(-2px);opacity:1} 100%{transform:scale(1) translateY(0);opacity:1} }
+  .animate-pop { opacity:0; animation:popIn .3s cubic-bezier(.175,.885,.32,1.275) forwards; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .bg-grid { background-size:40px 40px; background-image:linear-gradient(to right,rgba(0,48,135,.06) 1px,transparent 1px),linear-gradient(to bottom,rgba(0,166,80,.06) 1px,transparent 1px); }
+  .hide-arrows::-webkit-outer-spin-button,.hide-arrows::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .hide-arrows{-moz-appearance:textfield;appearance:textfield}
 
-        .bg-grid { background-size: 40px 40px; background-image: linear-gradient(to right, rgba(0, 48, 135, 0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 166, 80, 0.06) 1px, transparent 1px); }
-        
-        .expand-panel { transition: max-height 0.5s ease, opacity 0.5s ease, padding 0.5s ease; max-height: 0; opacity: 0; overflow: hidden; padding-top: 0; padding-bottom: 0; }
-        .expand-panel.open { max-height: 1000px; opacity: 1; padding-top: 1.5rem; padding-bottom: 1.5rem; overflow-y: auto;} 
-        
-        /* Receipt Styles */
-        .receipt-paper {
-            background-color: #fff;
-            color: #000;
-            position: relative;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        .receipt-paper::before {
-            content: ""; position: absolute; top: -5px; left: 0; width: 100%; height: 5px;
-            background: radial-gradient(circle, transparent, transparent 50%, #fff 50%, #fff 100%) -5px -5px / 10px 10px repeat-x;
-        }
-        .receipt-paper::after {
-            content: ""; position: absolute; bottom: -5px; left: 0; width: 100%; height: 5px;
-            background: radial-gradient(circle, transparent, transparent 50%, #fff 50%, #fff 100%) -5px 0 / 10px 10px repeat-x;
-        }
-        .receipt-dashed { border-bottom: 2px dashed #333; }
-    </style>
+  /* Receipt */
+  .receipt-paper{background:#fff;color:#000;position:relative;box-shadow:0 4px 10px rgba(0,0,0,.15)}
+  .receipt-paper::before{content:"";position:absolute;top:-6px;left:0;width:100%;height:6px;background:radial-gradient(circle,transparent 50%,#fff 50%) -5px -5px / 10px 12px repeat-x}
+  .receipt-paper::after{content:"";position:absolute;bottom:-6px;left:0;width:100%;height:6px;background:radial-gradient(circle,transparent 50%,#fff 50%) -5px 0 / 10px 12px repeat-x}
+  .receipt-dash{border-bottom:2px dashed #ccc}
+
+  /* Member tag */
+  .member-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;border-radius:999px;font-size:11px;font-weight:800;cursor:pointer;transition:all .15s;border:2px solid transparent;user-select:none}
+  .member-chip.active{color:#fff;}
+  .member-chip.inactive{opacity:.4;filter:grayscale(.6)}
+
+  /* Item row */
+  .item-row{transition:box-shadow .2s}
+  .item-row:focus-within{box-shadow:0 0 0 2px #00a650}
+
+  /* Color palette for members */
+  .mc-0{background:#6366f1}.mc-1{background:#f59e0b}.mc-2{background:#ec4899}.mc-3{background:#10b981}.mc-4{background:#3b82f6}.mc-5{background:#f97316}.mc-6{background:#8b5cf6}.mc-7{background:#14b8a6}
+
+  /* Summary card */
+  .summary-card{background:linear-gradient(135deg,#003087 0%,#001a40 100%)}
+
+  /* Expand */
+  .expand-panel{transition:max-height .5s ease,opacity .5s ease;max-height:0;opacity:0;overflow:hidden}
+  .expand-panel.open{max-height:2000px;opacity:1}
+
+  /* Scrollbar */
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#00a65060;border-radius:4px}
+
+  /* Math preview bubble */
+  .math-preview{position:absolute;top:-28px;right:0;background:#1e293b;color:#34d399;font-size:10px;font-weight:900;padding:2px 8px;border-radius:8px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.3);transition:opacity .15s}
+  .math-preview::after{content:"";position:absolute;bottom:-4px;right:10px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:4px solid #1e293b}
+
+  /* Session status */
+  .session-offline{border-color:#f97316!important}
+  .session-online{border-color:#10b981!important}
+  .badge-offline{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:3px}
+  .badge-online{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;display:inline-flex;align-items:center;gap:3px}
+  html.dark .badge-offline{background:rgba(249,115,22,.15);color:#fb923c;border-color:rgba(249,115,22,.3)}
+  html.dark .badge-online{background:rgba(16,185,129,.15);color:#34d399;border-color:rgba(16,185,129,.3)}
+</style>
 </head>
-<body class="bg-green-50 dark:bg-darkBg min-h-screen text-slate-800 dark:text-blue-100 font-sans p-4 md:p-8 flex justify-center items-start bg-grid transition-colors duration-500 pb-12 relative">
+<body class="bg-green-50 dark:bg-darkBg min-h-screen text-slate-800 dark:text-blue-100 font-sans p-3 md:p-8 flex justify-center items-start bg-grid pb-16">
 
-    <!-- ===== Loading Screen ===== -->
-    <div id="loading-screen" class="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-6 transition-opacity duration-700" style="background:#f0fff7;">
-        <style> @keyframes spin { to { transform: rotate(360deg); } } html.dark #loading-screen { background: #00102e !important; } </style>
-        <div class="relative flex flex-col items-center gap-4 z-10">
-            <div style="width:80px;height:80px;border-radius:50%;border:4px solid #b3d9c2;border-top-color:#00a650;animation:spin 1s linear infinite;"></div>
-            <p style="color:#00a650;font-weight:900;font-size:1.1rem;letter-spacing:.1em;">กำลังเปิดกระเป๋าตังค์...</p>
+<!-- Toast -->
+<div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 -translate-y-24 opacity-0 bg-slate-800/95 backdrop-blur text-white px-5 py-3 rounded-2xl shadow-2xl z-[200] transition-all duration-500 font-bold text-sm max-w-[90vw] text-center border border-slate-700 pointer-events-none"><span id="toast-msg"></span></div>
+
+<!-- Receipt Modal -->
+<div id="receipt-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur z-[150] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300 overflow-y-auto py-10">
+  <div class="flex flex-col items-center gap-4 w-full max-w-sm mx-auto relative">
+    <button onclick="closeReceiptModal()" class="absolute -top-12 right-0 w-10 h-10 flex items-center justify-center rounded-full bg-slate-800 text-white border border-slate-600 font-bold hover:bg-slate-700 transition-all z-10">✕</button>
+    <div id="receipt-area" class="receipt-paper p-6 w-[320px] font-mono text-sm leading-snug mx-auto">
+      <div class="text-center mb-5">
+        <div class="text-3xl font-black mb-1">🐱 NecoPay</div>
+        <div class="text-xs text-gray-500 font-sans">Bill Splitter Edition</div>
+        <div class="receipt-dash mt-3 pb-3 text-xs text-gray-600 space-y-0.5">
+          <div id="r-date"></div><div id="r-id" class="text-[10px] text-gray-400"></div>
         </div>
+      </div>
+      <div class="font-bold mb-2 pb-1 border-b border-black flex justify-between text-xs"><span>รายการ</span><span>฿</span></div>
+      <div id="r-items" class="mb-4 pb-4 receipt-dash space-y-1 text-xs"></div>
+      <div id="r-members" class="mb-4 pb-4 receipt-dash space-y-2"></div>
+      <div class="text-center text-[10px] text-gray-400 space-y-0.5 pb-1">
+        <div>** NecoPay — หารกันแบบยุติธรรม **</div>
+      </div>
     </div>
-    <!-- ========================= -->
+    <button id="dl-btn" class="w-[320px] bg-brand hover:bg-green-600 text-white font-black py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2">📸 บันทึกรูปใบเสร็จ</button>
+  </div>
+</div>
 
-    <!-- Toast Notification -->
-    <div id="error-toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 -translate-y-24 opacity-0 bg-slate-800/95 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl z-[100] transition-all duration-500 font-bold text-sm max-w-[90vw] text-center border border-slate-700 pointer-events-none">
-        <span id="error-toast-msg"></span>
+<!-- History Modal -->
+<div id="history-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur z-[150] hidden flex-col items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+  <div class="bg-white dark:bg-darkCard rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh] border border-slate-100 dark:border-blue-900/30">
+    <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 shrink-0">
+      <div>
+        <h3 class="font-black text-brand flex items-center gap-2">📂 ประวัติการหาร</h3>
+        <div class="flex items-center gap-2 mt-1">
+          <span class="badge-online">☁️ cloud</span>
+          <span class="badge-offline">📴 ออฟไลน์</span>
+        </div>
+      </div>
+      <button onclick="closeHistoryModal()" class="w-8 h-8 flex items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 font-bold hover:bg-slate-300 active:scale-95 transition-all">✕</button>
     </div>
+    <div id="history-list" class="p-4 overflow-y-auto space-y-3 flex-1 bg-slate-50 dark:bg-darkBg"></div>
+  </div>
+</div>
 
-    <!-- Modal: เลือกบิลเพื่อคลี่ -->
-    <div id="unfold-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="bg-white dark:bg-darkCard rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300 flex flex-col max-h-[80vh] border border-slate-200 dark:border-green-900/30">
-            <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50 shrink-0">
-                <h3 class="font-black text-blue-600 dark:text-blue-400 flex items-center gap-2"><span>📥</span> เลือกบิลที่จะคลี่มาทำต่อ</h3>
-                <button id="close-unfold-modal" class="w-8 h-8 flex justify-center items-center rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-300 active:scale-95 font-bold transition-all">✕</button>
-            </div>
-            <div id="unfold-list" class="p-4 overflow-y-auto space-y-3 bg-slate-50 dark:bg-darkBg flex-1">
-                <!-- รายการบิลจะถูกใส่ตรงนี้ -->
-            </div>
+<!-- Main Card -->
+<div class="w-full max-w-2xl bg-white dark:bg-darkCard rounded-[2.5rem] shadow-2xl overflow-hidden mt-2 md:mt-6 border border-green-100 dark:border-green-900/30 relative z-10">
+
+  <!-- Header -->
+  <div class="p-6 text-white relative overflow-hidden" style="background:#00a650;">
+    <div class="absolute -top-10 -right-10 text-9xl opacity-10 font-black select-none">🐱</div>
+    <div class="flex flex-col sm:flex-row justify-between sm:items-center relative z-10 gap-3">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 flex items-center justify-center bg-white/10 rounded-2xl border border-white/20 shadow-lg text-2xl">🐱</div>
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-black tracking-tight flex items-baseline gap-2">NecoPay <span class="text-xs font-bold text-blue-200/60 tracking-widest bg-black/20 px-2 py-0.5 rounded-lg">Split</span></h1>
+          <div class="text-green-100 text-[11px] font-bold">หารค่าใช้จ่ายกันสบาย ๆ</div>
         </div>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <!-- Google Auth -->
+        <div class="flex items-center bg-black/20 rounded-xl px-2 py-1 min-h-[36px]">
+          <button id="auth-login-btn" onclick="googleLogin()" class="flex items-center gap-1.5 text-xs font-bold text-white hover:text-green-200 transition-colors">
+            <span class="bg-white text-brand w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">G</span> ล็อกอิน
+          </button>
+          <div id="auth-user-wrap" class="hidden items-center gap-1.5" style="display:none">
+            <img id="auth-avatar" src="" class="w-5 h-5 rounded-full bg-white/20 object-cover"
+              onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiPjxjaXJjbGUgY3g9IjEyIiBjeT0iOCIgcj0iNCIvPjxwYXRoIGQ9Ik0yMCAyMWMtMi00LTQtNi04LTZzLTYgMi04IDYiLz48L3N2Zz4='">
+            <span id="auth-name" class="text-[11px] font-bold text-white max-w-[60px] truncate">ผู้ใช้</span>
+            <button onclick="googleLogout()" class="text-[9px] bg-red-500/80 hover:bg-red-600 text-white px-1.5 py-0.5 rounded ml-0.5 transition-colors font-bold">ออก</button>
+          </div>
+        </div>
+        <button onclick="openHistoryModal()" class="flex items-center gap-1.5 bg-black/20 hover:bg-black/30 text-white font-bold text-xs px-3 py-2 rounded-xl border border-white/10 transition-all active:scale-95">📂 ประวัติ</button>
+        <button onclick="toggleTheme()" id="theme-btn" class="p-3 bg-white/10 hover:bg-white/20 rounded-full border border-white/20 shadow-lg transition-all group">
+          <span id="theme-icon" class="text-xl">☀️</span>
+        </button>
+      </div>
     </div>
+  </div>
 
-    <!-- Modal: ใบเสร็จ (Receipt) -->
-    <div id="receipt-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[110] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300 overflow-y-auto py-10">
-        <div class="flex flex-col items-center gap-4 w-full max-w-sm mx-auto my-auto relative">
-            <button id="close-receipt-modal" class="absolute -top-12 right-0 w-10 h-10 flex justify-center items-center rounded-full bg-slate-800 text-white hover:bg-slate-700 active:scale-95 font-bold transition-all z-10 border border-slate-600">✕</button>
-            
-            <!-- Receipt Content (ส่วนที่จะถูกแคปเจอร์) -->
-            <div id="receipt-capture-area" class="receipt-paper p-6 w-[320px] font-mono text-sm leading-snug shrink-0 mx-auto">
-                <div class="text-center mb-4">
-                    <div class="text-3xl font-black mb-1">🏪 NecoMart</div>
-                    <div class="text-xs text-gray-500 font-sans">THB Edition</div>
-                    <div class="receipt-dashed mt-3 pb-3 text-xs text-gray-600">
-                        <div id="receipt-date">DD/MM/YYYY HH:MM</div>
-                        <div id="receipt-id">ID: 000000000</div>
-                    </div>
-                </div>
-                
-                <div class="flex justify-between font-bold mb-2 pb-1 border-b border-black">
-                    <span class="w-[60%]">รายการ</span>
-                    <span class="w-[40%] text-right">จำนวนเงิน</span>
-                </div>
-                
-                <div id="receipt-items" class="space-y-1 mb-4 pb-4 receipt-dashed min-h-[50px]">
-                    <!-- Items go here -->
-                </div>
-                
-                <div class="space-y-1 mb-4 pb-4 receipt-dashed">
-                    <div class="flex justify-between font-bold text-base">
-                        <span>ยอดรวม (THB)</span>
-                        <span id="receipt-total-thb">0.00 ฿</span>
-                    </div>
-                    <div class="flex justify-between text-gray-600 text-xs">
-                        <span>ตีเป็นเงินเยน</span>
-                        <span id="receipt-total-jpy">0 ¥</span>
-                    </div>
-                </div>
-                
-                <div class="text-center text-xs text-gray-500 mb-2">
-                    <div class="mb-1">** ขอบคุณที่ใช้บริการ **</div>
-                    <div>อัตราแลกเปลี่ยนโดยประมาณ: 100¥ ≈ <span id="receipt-rate">0</span>฿</div>
-                </div>
-            </div>
+  <div class="p-5 md:p-8 space-y-6">
 
-            <!-- Download Button -->
-            <button id="download-receipt-btn" class="w-[320px] bg-blue-600 hover:bg-blue-500 text-white font-black py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 shrink-0">
-                <span>📸</span> บันทึกรูปใบเสร็จ
-            </button>
+    <!-- STEP 1: Members -->
+    <section>
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-lg font-black text-brand dark:text-green-300 flex items-center gap-2">👥 คนที่ร่วมหาร</h2>
+        <button onclick="addMember()" class="bg-green-50 dark:bg-green-900/40 hover:bg-green-100 text-brand dark:text-green-200 border border-green-200 dark:border-green-800 font-black py-1.5 px-4 rounded-2xl text-xs transition-all active:scale-95 shadow-sm">+ เพิ่มคน</button>
+      </div>
+      <div id="members-area" class="flex flex-wrap gap-2"></div>
+    </section>
+
+    <hr class="border-dashed border-green-100 dark:border-green-900/30">
+
+    <!-- STEP 2: Items -->
+    <section>
+      <div class="flex justify-between items-center mb-3 flex-wrap gap-2">
+        <h2 class="text-lg font-black text-brand dark:text-green-300 flex items-center gap-2">🛒 รายการสินค้า / ค่าใช้จ่าย</h2>
+        <div class="flex gap-2">
+          <button onclick="clearItems()" id="clear-btn" class="bg-red-50 dark:bg-red-900/30 text-red-500 border border-red-200 dark:border-red-800 font-black py-1.5 px-3 rounded-2xl text-xs transition-all active:scale-95">🗑️ ล้าง</button>
+          <button onclick="addItem()" class="bg-green-50 dark:bg-green-900/40 text-brand dark:text-green-200 border border-green-200 dark:border-green-800 font-black py-1.5 px-4 rounded-2xl text-xs transition-all active:scale-95 shadow-sm">+ เพิ่มรายการ</button>
         </div>
-    </div>
+      </div>
 
-    <!-- Modal: Data Merge Prompt (Offline -> Online) -->
-    <div id="merge-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[105] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-300">
-        <div class="bg-white dark:bg-darkCard rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-transform duration-300 p-6 border border-slate-200 dark:border-blue-900/50">
-            <div class="text-center mb-6">
-                <div class="text-5xl mb-4">🔄</div>
-                <h3 class="font-black text-slate-800 dark:text-blue-100 text-xl mb-2">พบตะกร้าที่ยังไม่ได้พับ!</h3>
-                <p class="text-sm font-bold text-slate-500 dark:text-blue-200/70">คุณมีรายการที่จดค้างไว้ตอนออฟไลน์ และมีตะกร้าที่ค้างอยู่บนเว็บ (Cloud) จะให้จัดการอย่างไร?</p>
-            </div>
-            <div class="space-y-3">
-                <button id="merge-combine-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-black py-3 rounded-xl shadow-md transition-all active:scale-95">
-                    1. รวมเข้าด้วยกัน (Merge)
-                </button>
-                <button id="merge-overwrite-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-black py-3 rounded-xl shadow-md transition-all active:scale-95">
-                    2. ใช้ของออฟไลน์ (ทับของบนเว็บ)
-                </button>
-                <button id="merge-discard-btn" class="w-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 font-black py-3 rounded-xl transition-all active:scale-95">
-                    3. ทิ้งออฟไลน์ (ใช้ของบนเว็บ)
-                </button>
-            </div>
+      <!-- Column headers -->
+      <div class="grid grid-cols-[1fr_100px_auto] gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider px-1 mb-1 hidden sm:grid">
+        <span>ชื่อรายการ</span><span class="text-right">ราคา (฿)</span><span></span>
+      </div>
+
+      <div id="items-area" class="space-y-3"></div>
+    </section>
+
+    <hr class="border-dashed border-green-100 dark:border-green-900/30">
+
+    <!-- STEP 3: Summary -->
+    <section>
+      <h2 class="text-lg font-black text-brand dark:text-green-300 flex items-center gap-2 mb-4">💰 สรุปยอดแต่ละคน</h2>
+      
+      <div id="summary-area" class="space-y-3"></div>
+
+      <div class="summary-card rounded-[2rem] p-6 text-white shadow-xl mt-5 relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
+          <div class="text-center sm:text-left">
+            <div class="text-green-100 text-[10px] font-black uppercase tracking-widest mb-1">ยอดรวมทั้งหมด</div>
+            <div class="text-4xl font-black tracking-tighter"><span id="grand-total">0.00</span> <span class="text-2xl text-green-200 font-bold">฿</span></div>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="calculate()" class="bg-brand hover:bg-green-600 text-white font-black px-5 py-3 rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2">🧮 คำนวณ</button>
+            <button onclick="openReceipt()" class="bg-white/10 hover:bg-white/20 text-white font-black px-5 py-3 rounded-xl border border-white/20 transition-all active:scale-95 flex items-center gap-2">🧾 ใบเสร็จ</button>
+          </div>
         </div>
-    </div>
+      </div>
 
-    <div class="w-full max-w-2xl bg-white dark:bg-darkCard rounded-[2.5rem] shadow-2xl overflow-hidden mt-2 md:mt-6 border border-green-100 dark:border-green-900/30 transition-all duration-500 relative z-10">
-        
-        <!-- Header -->
-        <div class="p-6 text-white relative overflow-hidden transition-colors" style="background:#00a650;">
-            <div class="absolute -top-10 -right-10 text-9xl opacity-10 font-black">🏪</div>
-            
-            <div class="flex flex-col sm:flex-row justify-between sm:items-center relative z-10 gap-4">
-                <div class="flex items-center gap-4">
-                    <button id="logo-home-btn" class="w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 active:scale-95 rounded-2xl border border-white/20 shadow-lg text-2xl group transition-all outline-none cursor-pointer">
-                        <span class="group-hover:scale-125 transition-transform">🏪</span>
-                    </button>
-                    <div class="text-left">
-                        <h1 class="text-2xl sm:text-3xl font-black tracking-tight mb-0.5 flex items-baseline gap-2">NecoMart<span class="text-xs font-bold text-blue-200/60 tracking-widest bg-black/20 px-2 py-0.5 rounded-lg">THB Mode</span></h1>
-                        <div id="rate-display" class="text-green-100 text-[10px] sm:text-xs font-bold bg-black/10 inline-block px-3 py-0.5 rounded-full animate-pulse">กำลังดึงข้อมูลเรทเงิน...</div>
-                    </div>
-                </div>
-                
-                <div class="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
-                    <!-- Google Auth Section -->
-                    <div id="auth-section" class="flex items-center bg-black/20 rounded-xl px-2 py-1 min-h-[36px]">
-                        <button id="google-login-btn" class="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-white hover:text-green-200 transition-colors">
-                            <span class="bg-white text-mainBrand w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">G</span> ล็อกอิน
-                        </button>
-                        <div id="user-profile" class="hidden items-center gap-1.5">
-                            <img id="user-avatar" src="" class="w-5 h-5 rounded-full bg-white/20 object-cover" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiPjxjaXJjbGUgY3g9IjEyIiBjeT0iOCIgcj0iNCIvPjxwYXRoIGQ9Ik0yMCAyMWMtMi00LTQtNi04LTZzLTYgMi04IDYiLz48L3N2Zz4='">
-                            <span id="user-name" class="text-[11px] sm:text-xs font-bold text-white max-w-[60px] truncate">ผู้ใช้</span>
-                            <button id="logout-btn" class="text-[9px] sm:text-[10px] bg-red-500/80 hover:bg-red-600 text-white px-1.5 py-0.5 rounded ml-0.5 transition-colors">ออก</button>
-                        </div>
-                    </div>
+      <!-- Save Session -->
+      <button onclick="saveSession()" class="mt-4 w-full bg-slate-800 dark:bg-slate-700 text-white font-bold py-3.5 rounded-xl hover:bg-slate-900 active:scale-95 transition-all flex justify-center items-center gap-2 shadow-lg border border-slate-600">
+        🧾 บันทึกการหารรอบนี้
+      </button>
+    </section>
+  </div>
+</div>
 
-                    <!-- Tab Switcher -->
-                    <div class="flex bg-black/20 p-1 rounded-xl">
-                        <button id="tab-active" class="px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-white text-[#00a650] shadow-sm">ตะกร้า</button>
-                        <button id="tab-history" class="px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-white/70 hover:text-white">ประวัติ</button>
-                    </div>
-                    <!-- Theme Btn -->
-                    <button id="theme-btn" class="p-3 bg-white/10 hover:bg-white/20 rounded-full transition-all border border-white/20 shadow-lg group">
-                        <span id="theme-icon" class="text-xl">☀️</span>
-                    </button>
-                </div>
-            </div>
+<script>
+// ========== STATE ==========
+let members = [];
+let items = [];
+let sessions = JSON.parse(localStorage.getItem('necoPay_sessions') || '[]');
+window._localSessions = sessions;
+
+const COLORS = ['#6366f1','#f59e0b','#ec4899','#10b981','#3b82f6','#f97316','#8b5cf6','#14b8a6'];
+
+// ========== INIT ==========
+function init() {
+  // Load theme
+  if (localStorage.getItem('necoPay_theme') === 'dark') {
+    document.documentElement.classList.add('dark');
+    document.getElementById('theme-icon').textContent = '🌙';
+  }
+
+  // Load draft
+  const draft = JSON.parse(localStorage.getItem('necoPay_draft') || 'null');
+  if (draft) {
+    members = draft.members || [];
+    items = draft.items || [];
+  } else {
+    // Default members
+    members = [{ id: uid(), name: 'คน A' }, { id: uid(), name: 'คน B' }];
+    items = [{ id: uid(), name: '', price: '', memberIds: members.map(m => m.id) }];
+  }
+
+  renderMembers();
+  renderItems();
+  calculate();
+}
+
+// ========== UTILS ==========
+function uid() { return Math.random().toString(36).slice(2,9); }
+function fmt(n) { return Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function saveDraft() {
+  localStorage.setItem('necoPay_draft', JSON.stringify({ members, items }));
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.style.transform = 'translateX(-50%) translateY(0)';
+  t.style.opacity = '1';
+  setTimeout(() => { t.style.transform = 'translateX(-50%) translateY(-6rem)'; t.style.opacity = '0'; }, 2800);
+}
+function colorOf(idx) { return COLORS[idx % COLORS.length]; }
+function memberIdx(id) { return members.findIndex(m => m.id === id); }
+
+// ========== MATH EVAL ==========
+// Safely evaluate simple arithmetic expressions like "120+80/2*3"
+function evaluateMath(expr) {
+  if (!expr && expr !== 0) return 0;
+  const str = String(expr).trim().replace(/\s/g, '').replace(/[^\d+\-*/().]/g, '');
+  if (!str) return 0;
+  try {
+    // Guard: only allow digits and operators
+    if (!/^[\d+\-*/.()]+$/.test(str)) return parseFloat(str) || 0;
+    const result = Function('"use strict"; return (' + str + ')')();
+    return isFinite(result) && result >= 0 ? result : 0;
+  } catch { return parseFloat(str) || 0; }
+}
+
+// ========== THEME ==========
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  document.getElementById('theme-icon').textContent = isDark ? '🌙' : '☀️';
+  localStorage.setItem('necoPay_theme', isDark ? 'dark' : 'light');
+}
+
+// ========== MEMBERS ==========
+function renderMembers() {
+  const area = document.getElementById('members-area');
+  area.innerHTML = '';
+  members.forEach((m, i) => {
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-1 bg-white dark:bg-darkCard border-2 rounded-2xl px-3 py-1.5 shadow-sm transition-all animate-pop';
+    div.style.borderColor = colorOf(i);
+    div.style.animationDelay = (i * 0.05) + 's';
+    div.innerHTML = `
+      <span class="w-4 h-4 rounded-full flex-shrink-0" style="background:${colorOf(i)}"></span>
+      <input type="text" value="${m.name}" placeholder="ชื่อ" maxlength="12"
+        class="bg-transparent font-black text-sm w-20 focus:outline-none text-slate-700 dark:text-white"
+        oninput="renameMember('${m.id}',this.value)">
+      <button onclick="removeMember('${m.id}')" class="text-slate-300 hover:text-red-400 transition-colors text-xs ml-1 font-bold">✕</button>
+    `;
+    area.appendChild(div);
+  });
+}
+
+function addMember() {
+  if (members.length >= 8) { showToast('⚠️ รองรับสูงสุด 8 คน'); return; }
+  const m = { id: uid(), name: 'คน ' + String.fromCharCode(65 + members.length) };
+  members.push(m);
+  // Add new member to all items by default
+  items.forEach(it => it.memberIds.push(m.id));
+  renderMembers(); renderItems(); calculate(); saveDraft();
+  showToast('✅ เพิ่มคนแล้ว!');
+}
+
+function removeMember(id) {
+  if (members.length <= 1) { showToast('❌ ต้องมีอย่างน้อย 1 คน'); return; }
+  members = members.filter(m => m.id !== id);
+  items.forEach(it => { it.memberIds = it.memberIds.filter(mid => mid !== id); });
+  renderMembers(); renderItems(); calculate(); saveDraft();
+}
+
+function renameMember(id, name) {
+  const m = members.find(m => m.id === id);
+  if (m) m.name = name;
+  // Re-render chips inside items without full re-render
+  document.querySelectorAll(`.chip-name-${id}`).forEach(el => el.textContent = name || '?');
+  calculate(); // recalculates and calls renderSummary(totals) properly
+  saveDraft();
+}
+
+// ========== ITEMS ==========
+function renderItems() {
+  const area = document.getElementById('items-area');
+  area.innerHTML = '';
+  items.forEach((it, idx) => {
+    const row = document.createElement('div');
+    row.className = 'item-row bg-slate-50 dark:bg-blue-950/20 rounded-2xl border border-slate-200 dark:border-blue-900/40 p-3 space-y-2 animate-pop';
+    row.style.animationDelay = (idx * 0.04) + 's';
+
+    const chipsHtml = members.map((m, mi) => {
+      const active = it.memberIds.includes(m.id);
+      return `<button type="button" onclick="toggleMemberOnItem('${it.id}','${m.id}')" 
+        class="member-chip ${active ? 'active' : 'inactive'} chip-item-${it.id}" 
+        style="${active ? 'background:' + colorOf(mi) + ';border-color:' + colorOf(mi) : 'border-color:' + colorOf(mi)};color:${active ? '#fff' : colorOf(mi)}" 
+        data-mid="${m.id}">
+        <span class="chip-name-${m.id}">${m.name || '?'}</span>
+      </button>`;
+    }).join('');
+
+    row.innerHTML = `
+      <div class="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
+        <input type="text" value="${it.name}" placeholder="ชื่อรายการ (เช่น ข้าว, แอร์)" maxlength="30"
+          class="bg-transparent font-bold text-sm focus:outline-none text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 min-w-0 item-name-input"
+          data-item-id="${it.id}"
+          oninput="updateItemName('${it.id}',this.value)">
+        <div class="relative flex items-center">
+          <span class="absolute left-2 text-slate-400 dark:text-slate-500 text-xs font-bold">฿</span>
+          <input type="text" inputmode="decimal" value="${it.price}" placeholder="0.00 หรือ 50+30"
+            class="w-full bg-white dark:bg-darkCard border border-slate-200 dark:border-blue-800 rounded-xl pl-5 pr-2 py-1.5 font-black text-sm text-right focus:outline-none focus:border-brand dark:focus:border-green-400 hide-arrows item-price-input"
+            data-item-id="${it.id}"
+            oninput="updateItemPrice('${it.id}',this.value)">
+          <div class="math-preview" id="math-preview-${it.id}" style="opacity:0;position:absolute;top:-28px;right:0"></div>
         </div>
+        <button onclick="removeItem('${it.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-bold">✕</button>
+      </div>
+      <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+        <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 self-center mr-1">หาร:</span>
+        ${chipsHtml}
+        <button onclick="toggleAllOnItem('${it.id}')" class="text-[10px] font-bold text-slate-400 hover:text-brand dark:hover:text-green-300 px-2 py-0.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 transition-colors">ทั้งหมด</button>
+      </div>
+    `;
+    area.appendChild(row);
 
-        <!-- ============================================== -->
-        <!-- VIEW 1: ACTIVE SESSION (ตะกร้าที่กำลังซื้อ) -->
-        <!-- ============================================== -->
-        <div id="active-view" class="p-6 md:p-8 block">
-            
-            <!-- 0. Old Session Prompt -->
-            <div id="old-session-prompt" class="hidden animate-pop bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-4 sm:p-5 mb-6 shadow-md flex-col sm:flex-row justify-between items-center gap-4 relative z-20">
-                <div class="flex items-center gap-4">
-                    <span class="text-3xl sm:text-4xl">🗓️</span>
-                    <div>
-                        <h3 class="font-black text-blue-800 dark:text-blue-300 text-lg">พบบิลค้างจากรอบที่แล้ว</h3>
-                        <p class="text-xs text-blue-600 dark:text-blue-400 font-bold mt-0.5">รายการของวันที่ <span id="old-session-date" class="underline"></span> ยังไม่ได้พับเก็บ</p>
-                    </div>
-                </div>
-                <div class="flex gap-2 w-full sm:w-auto">
-                    <button id="keep-old-session-btn" class="flex-1 sm:flex-none px-4 py-2.5 bg-white dark:bg-darkCard text-slate-500 font-bold rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 active:scale-95 transition-all text-sm">ใช้ต่อ</button>
-                    <button id="fold-old-session-btn" class="flex-1 sm:flex-none px-6 py-2.5 bg-blue-500 hover:bg-blue-600 text-white font-black rounded-xl shadow-sm active:scale-95 transition-all text-sm flex items-center justify-center gap-2">
-                        พับบิลเก็บ 🧾
-                    </button>
-                </div>
-            </div>
+    // ── Enter key navigation ──
+    const nameInput  = row.querySelector('.item-name-input');
+    const priceInput = row.querySelector('.item-price-input');
 
-            <!-- 2. Budget Input Bar -->
-            <div class="mb-4 bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-green-100 dark:border-green-800/50 p-2 flex flex-col sm:flex-row items-center gap-2 relative z-10 transition-all focus-within:ring-2 focus-within:ring-green-200">
-                <div class="flex items-center gap-2 pl-3 shrink-0 w-full sm:w-auto border-b sm:border-b-0 border-slate-100 dark:border-slate-800 pb-2 sm:pb-0">
-                    <span class="text-xl">💼</span>
-                    <label class="font-bold text-mainBrand dark:text-green-300 text-sm whitespace-nowrap">เงินในกระเป๋าสตางค์</label>
-                </div>
-                <div class="flex flex-1 w-full relative h-10">
-                    <input type="text" inputmode="decimal" id="budget-input" class="w-full h-full bg-transparent px-3 font-black text-slate-800 dark:text-white focus:outline-none text-right sm:text-left placeholder-slate-300 dark:placeholder-slate-600" placeholder="(Optional) ใส่ตัวเลขงบประมาณ">
-                    <select id="budget-currency" class="h-full bg-transparent font-black text-green-700 dark:text-green-400 focus:outline-none cursor-pointer outline-none pl-2 border-l border-slate-200 dark:border-slate-700">
-                        <option value="THB" selected>฿ THB</option>
-                        <option value="JPY">¥ JPY</option>
-                    </select>
-                </div>
-            </div>
+    nameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); priceInput.focus(); priceInput.select(); }
+    });
 
-            <!-- 3. Budget Progress -->
-            <div id="budget-progress-container" class="hidden animate-pop mb-6 bg-green-50 dark:bg-green-950/30 rounded-3xl border border-dashed border-green-200 dark:border-green-900/50 p-4 relative">
-                <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-3 mb-2 overflow-hidden relative shadow-inner">
-                    <div id="budget-progress" class="h-3 rounded-full transition-all duration-700 w-0 bg-emerald-400"></div>
-                </div>
-                <div class="flex justify-between items-end">
-                    <div id="budget-status" class="text-[11px] sm:text-xs font-black text-slate-400">ใช้งบไปแล้ว 0%</div>
-                    <div class="text-right">
-                        <div class="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider mb-0.5">เงินทอนคงเหลือ</div>
-                        <div id="budget-change" class="text-lg font-black text-slate-400">0</div>
-                    </div>
-                </div>
-            </div>
+    priceInput.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const allPrices = [...document.querySelectorAll('.item-price-input')];
+      const idx = allPrices.indexOf(priceInput);
+      if (idx < allPrices.length - 1) {
+        // Go to next row's name input
+        const nextName = document.querySelectorAll('.item-name-input')[idx + 1];
+        if (nextName) { nextName.focus(); nextName.select(); }
+      } else {
+        // Last row → add new item and focus it
+        addItem();
+      }
+    });
+  });
+}
 
-            <!-- 4. Wallet (แสดงเป็นเงินเยน) -->
-            <div class="bg-green-50 dark:bg-green-900/10 border-2 border-green-100 dark:border-green-900/30 rounded-3xl p-6 md:p-8 mb-8 relative shadow-inner transition-all duration-500">
-                <div id="wallet-title" class="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-white dark:bg-green-900 px-4 py-1.5 border-2 border-green-200 dark:border-green-700 rounded-full text-[10px] font-black text-green-700 dark:text-green-200 tracking-widest shadow-sm whitespace-nowrap z-20 transition-all uppercase">เงินเยน (¥) ที่ต้องเตรียม</div>
-                <div id="wallet-container" class="flex flex-wrap gap-4 md:gap-6 justify-center items-center min-h-[120px] mt-2"></div>
-            </div>
+function addItem() {
+  const it = { id: uid(), name: '', price: '', memberIds: members.map(m => m.id) };
+  items.push(it);
+  renderItems(); calculate(); saveDraft();
+  // Focus the name input of the last (new) row
+  setTimeout(() => {
+    const nameInputs = document.querySelectorAll('.item-name-input');
+    if (nameInputs.length) nameInputs[nameInputs.length - 1].focus();
+  }, 50);
+}
 
-            <div class="mb-6">
-                <!-- Action Buttons Area -->
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-4 border-b-2 border-blue-50 dark:border-blue-900/20 pb-3 gap-3">
-                    <h2 class="text-xl font-bold text-mainBrand dark:text-green-300 flex items-center gap-2 tracking-tight"><span>🛒</span> รายการสินค้า</h2>
-                    <div class="flex flex-wrap items-center justify-end gap-2 w-full lg:w-auto">
-                        <button id="open-unfold-modal-btn" class="flex-1 sm:flex-none bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-500 border border-blue-200 dark:border-blue-800 font-black py-1.5 px-3 rounded-2xl text-xs transition-all flex justify-center items-center gap-1 active:scale-95 shadow-sm">
-                            <span class="text-base leading-none">📥</span> คลี่บิล
-                        </button>
-                        <button id="clear-all-btn" class="flex-1 sm:flex-none bg-red-50 dark:bg-red-900/30 hover:bg-red-100 text-red-500 border border-red-200 dark:border-red-800 font-black py-1.5 px-3 rounded-2xl text-xs transition-all flex justify-center items-center gap-1 active:scale-95 shadow-sm">
-                            <span class="text-base leading-none">🗑️</span> <span id="clear-btn-text">ล้างทั้งหมด</span>
-                        </button>
-                        <button id="add-row-btn" class="w-full sm:w-auto bg-green-50 dark:bg-green-900/40 hover:bg-green-100 text-mainBrand dark:text-green-200 border border-green-200 dark:border-green-800 font-black py-1.5 px-4 rounded-2xl text-xs transition-all flex justify-center items-center gap-1 active:scale-95 shadow-sm mt-1 sm:mt-0">
-                            <span class="text-base leading-none">+</span> เพิ่มรายการ
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Items Container -->
-                <div id="inputs-wrapper" class="space-y-3"></div>
+function removeItem(id) {
+  items = items.filter(it => it.id !== id);
+  if (!items.length) addItem();
+  else { renderItems(); calculate(); saveDraft(); }
+}
 
-                <!-- Fold Bill Button -->
-                <div id="fold-bill-container" class="mt-4 hidden animate-pop">
-                    <button id="fold-bill-btn" class="w-full bg-slate-800 dark:bg-slate-700 text-white font-bold py-3.5 rounded-xl hover:bg-slate-900 active:scale-95 transition-all flex justify-center items-center gap-2 shadow-lg border border-slate-600 outline-none">
-                        <span>🧾</span> <span>พับบิลเก็บ (จบการซื้อรอบนี้)</span>
-                    </button>
-                </div>
-            </div>
+function updateItemName(id, val) {
+  const it = items.find(i => i.id === id);
+  if (it) it.name = val;
+  calculate(); saveDraft();
+}
 
-            <!-- Total Summary Area -->
-            <div class="mt-8 rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden transition-colors" style="background:#003087;">
-                <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10"></div>
-                <div class="flex flex-col sm:flex-row justify-between items-center sm:items-end gap-6 relative z-10">
-                    <div class="text-center sm:text-left">
-                        <div class="text-green-100 text-[10px] font-black uppercase tracking-widest mb-1 font-bold">รวมยอด บาท (THB) ทั้งหมด</div>
-                        <div class="text-4xl font-black tracking-tighter"><span id="total-thb">0</span> <span class="text-2xl text-green-200 font-bold">฿</span></div>
-                    </div>
-                    <div class="hidden sm:block text-blue-200/30 text-4xl">➜</div>
-                    <div class="text-center sm:text-right">
-                        <div class="text-green-100 text-[10px] font-black uppercase tracking-widest mb-1 font-bold">ตีเป็นเงินเยน (ปัดเศษ)</div>
-                        <div class="text-5xl font-black text-amber-300 drop-shadow-md"><span id="total-jpy">0</span> <span class="text-3xl font-bold">¥</span></div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-6 flex flex-col sm:flex-row justify-center items-center gap-4 border-t border-dashed border-green-100 dark:border-green-900/30 pt-4">
-                <div id="toggle-compare-btn" class="flex items-center justify-center gap-2 cursor-pointer group select-none">
-                    <span id="compare-panel-tick" class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110 inline-flex"></span>
-                    <span class="text-xs font-bold text-slate-400 group-hover:text-mainBrand dark:group-hover:text-green-300 transition-colors">⚖️ เครื่องมือเปรียบเทียบความคุ้มค่า</span>
-                </div>
-            </div>
+function updateItemPrice(id, val) {
+  const it = items.find(i => i.id === id);
+  if (it) it.price = val;
 
-            <!-- Compare Section -->
-            <div id="compare-section" class="expand-panel bg-slate-50 dark:bg-blue-950/30 rounded-3xl border-2 border-dashed border-emerald-200 dark:border-emerald-900/50 px-4 sm:px-6 mt-4 relative">
-                <div class="flex justify-between items-center mb-4">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xl">⚖️</span>
-                        <h3 class="font-bold text-emerald-600 dark:text-emerald-400 text-sm">เครื่องมือเปรียบเทียบ</h3>
-                    </div>
-                    <div class="flex gap-2">
-                        <button id="add-ticked-to-cart-btn" class="hidden bg-emerald-500 text-white text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-emerald-600 active:scale-95 transition-all shadow-sm">🛒 ใส่ตะกร้า</button>
-                        <button id="add-compare-row-btn" class="bg-white dark:bg-darkCard text-emerald-600 border border-emerald-200 text-[10px] font-black px-3 py-1.5 rounded-xl hover:bg-emerald-50 active:scale-95 transition-all shadow-sm">+ เพิ่มของเทียบ</button>
-                    </div>
-                </div>
-                <div id="compare-list" class="space-y-2 mb-4"></div>
-            </div>
+  // Show math preview bubble if expression contains operators
+  const preview = document.getElementById('math-preview-' + id);
+  if (preview) {
+    const hasMath = /[+\-*/]/.test(val) && val.trim() !== '';
+    if (hasMath) {
+      const result = evaluateMath(val);
+      preview.textContent = '= ' + fmt(result) + ' ฿';
+      preview.style.opacity = '1';
+    } else {
+      preview.style.opacity = '0';
+    }
+  }
+
+  calculate(); saveDraft();
+}
+
+function toggleMemberOnItem(itemId, memberId) {
+  const it = items.find(i => i.id === itemId);
+  if (!it) return;
+  const has = it.memberIds.includes(memberId);
+  if (has) {
+    if (it.memberIds.length <= 1) { showToast('⚠️ ต้องมีผู้หารอย่างน้อย 1 คน'); return; }
+    it.memberIds = it.memberIds.filter(mid => mid !== memberId);
+  } else {
+    it.memberIds.push(memberId);
+  }
+  // Update chip visually without full re-render
+  const mi = memberIdx(memberId);
+  document.querySelectorAll(`.chip-item-${itemId}[data-mid="${memberId}"]`).forEach(btn => {
+    const newActive = it.memberIds.includes(memberId);
+    btn.className = `member-chip ${newActive ? 'active' : 'inactive'} chip-item-${itemId}`;
+    btn.style.background = newActive ? colorOf(mi) : '';
+    btn.style.borderColor = colorOf(mi);
+    btn.style.color = newActive ? '#fff' : colorOf(mi);
+  });
+  calculate(); saveDraft();
+}
+
+function toggleAllOnItem(itemId) {
+  const it = items.find(i => i.id === itemId);
+  if (!it) return;
+  it.memberIds = members.map(m => m.id);
+  renderItems(); calculate(); saveDraft();
+}
+
+function clearItems() {
+  items = [{ id: uid(), name: '', price: '', memberIds: members.map(m => m.id) }];
+  renderItems(); calculate(); saveDraft();
+  showToast('🗑️ ล้างรายการแล้ว');
+}
+
+// ========== CALCULATE ==========
+function calculate() {
+  const totals = {};
+  members.forEach(m => totals[m.id] = 0);
+
+  let grand = 0;
+  items.forEach(it => {
+    const price = evaluateMath(it.price);   // ← supports +-*/
+    grand += price;
+    const share = it.memberIds.length > 0 ? price / it.memberIds.length : 0;
+    it.memberIds.forEach(mid => { if (totals[mid] !== undefined) totals[mid] += share; });
+  });
+
+  document.getElementById('grand-total').textContent = fmt(grand);
+  renderSummary(totals);
+  return { totals, grand };
+}
+
+function renderSummary(totals) {
+  if (!totals) return; // guard: called without totals, skip
+  const area = document.getElementById('summary-area');
+  area.innerHTML = '';
+  members.forEach((m, i) => {
+    const amt = totals[m.id] || 0;
+    const div = document.createElement('div');
+    div.className = 'flex items-center justify-between bg-white dark:bg-darkCard rounded-2xl p-4 border-l-4 shadow-sm animate-pop';
+    div.style.borderLeftColor = colorOf(i);
+    div.style.animationDelay = (i * 0.06) + 's';
+    div.innerHTML = `
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-sm shadow-md" style="background:${colorOf(i)}">${(m.name||'?')[0].toUpperCase()}</div>
+        <div>
+          <div class="font-black text-slate-700 dark:text-white text-sm">${m.name || '?'}</div>
+          <div class="text-[10px] text-slate-400 dark:text-slate-500 font-bold">${countItemsForMember(m.id)} รายการ</div>
         </div>
+      </div>
+      <div class="text-right">
+        <div class="font-black text-xl" style="color:${colorOf(i)}">${fmt(amt)} <span class="text-sm font-bold text-slate-400">฿</span></div>
+      </div>
+    `;
+    area.appendChild(div);
+  });
+}
 
-        <!-- ============================================== -->
-        <!-- VIEW 2: HISTORY (ประวัติบิลสำหรับแก้ไข) -->
-        <!-- ============================================== -->
-        <div id="history-view" class="p-6 md:p-8 hidden">
-             <div class="mb-6 px-2 flex justify-between items-end">
-                 <div>
-                     <h2 class="font-black text-slate-700 dark:text-green-300 text-xl flex items-center gap-2"><span>📂</span> แฟ้มประวัติ</h2>
-                     <p class="text-xs text-slate-500 dark:text-blue-200/50 font-bold mt-1">แตะเพื่อกางบิล แก้ไข หรือ พิมพ์ใบเสร็จ</p>
-                 </div>
-             </div>
+function countItemsForMember(mid) {
+  return items.filter(it => it.memberIds.includes(mid) && evaluateMath(it.price) > 0).length;
+}
 
-             <div id="history-list" class="space-y-4 pb-12">
-                 <!-- Receipts injected here -->
-             </div>
+// ========== RECEIPT ==========
+function openReceipt() {
+  const { totals, grand } = calculate();
+
+  const now = new Date();
+  document.getElementById('r-date').textContent = now.toLocaleDateString('th-TH', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  document.getElementById('r-id').textContent = 'ID: ' + Math.random().toString(36).slice(2, 11).toUpperCase();
+
+  // Items
+  const rItems = document.getElementById('r-items');
+  rItems.innerHTML = '';
+  let hasItems = false;
+  items.forEach(it => {
+    const price = evaluateMath(it.price);
+    if (!it.name && !price) return;
+    hasItems = true;
+    const div = document.createElement('div');
+    div.className = 'flex justify-between gap-2';
+    // Show original expression + resolved value if math was used
+    const hasExpr = /[+\-*/]/.test(it.price||'');
+    const label = hasExpr ? `${it.name || '(ไม่มีชื่อ)'} <span style="color:#9ca3af;font-size:9px">(${it.price})</span>` : (it.name || '(ไม่มีชื่อ)');
+    div.innerHTML = `<span class="flex-1">${label}</span><span class="font-bold flex-shrink-0">${fmt(price)}</span>`;
+    rItems.appendChild(div);
+
+    // Who splits
+    const who = members.filter(m => it.memberIds.includes(m.id)).map(m => m.name).join(', ');
+    const sub = document.createElement('div');
+    sub.className = 'text-[9px] text-gray-400 pl-2';
+    sub.textContent = '↳ หาร: ' + (who || '-');
+    rItems.appendChild(sub);
+  });
+  if (!hasItems) rItems.innerHTML = '<div class="text-gray-400 text-center py-2">ไม่มีรายการ</div>';
+
+  // Member totals
+  const rMembers = document.getElementById('r-members');
+  rMembers.innerHTML = '';
+  members.forEach((m, i) => {
+    const div = document.createElement('div');
+    div.className = 'flex justify-between font-bold';
+    div.innerHTML = `<span style="color:${colorOf(i)}">${m.name}</span><span>${fmt(totals[m.id] || 0)} ฿</span>`;
+    rMembers.appendChild(div);
+  });
+
+  // Grand total row
+  const totalRow = document.createElement('div');
+  totalRow.className = 'flex justify-between font-black text-base pt-2 border-t border-black mt-2';
+  totalRow.innerHTML = `<span>รวม</span><span>${fmt(grand)} ฿</span>`;
+  rMembers.appendChild(totalRow);
+
+  const modal = document.getElementById('receipt-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => { modal.style.opacity = '1'; }, 10);
+}
+
+function closeReceiptModal() {
+  const modal = document.getElementById('receipt-modal');
+  modal.style.opacity = '0';
+  setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+
+document.getElementById('dl-btn').addEventListener('click', async () => {
+  const area = document.getElementById('receipt-area');
+  try {
+    const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+    const link = document.createElement('a');
+    link.download = 'necopay-receipt-' + Date.now() + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showToast('📸 บันทึกรูปใบเสร็จแล้ว!');
+  } catch(e) { showToast('❌ ไม่สามารถบันทึกได้'); }
+});
+
+// ========== SAVE SESSION ==========
+function saveSession() {
+  const { totals, grand } = calculate();
+  const isLoggedIn = !!(document.getElementById('auth-user-wrap') && !document.getElementById('auth-user-wrap').classList.contains('hidden'));
+  const session = {
+    id: uid(),
+    date: new Date().toISOString(),
+    members: JSON.parse(JSON.stringify(members)),
+    items: JSON.parse(JSON.stringify(items)),
+    totals: { ...totals },
+    grand,
+    synced: isLoggedIn   // ← track online/offline status
+  };
+  sessions.unshift(session);
+  if (sessions.length > 30) sessions.pop();
+  localStorage.setItem('necoPay_sessions', JSON.stringify(sessions));
+  window._localSessions = sessions;
+
+  if (isLoggedIn && window.saveToCloud) {
+    window.saveToCloud(sessions);
+    showToast('☁️ บันทึกแล้ว — ซิงค์ cloud เรียบร้อย!');
+  } else {
+    showToast('💾 บันทึกแล้ว (ออฟไลน์)');
+  }
+}
+
+// Upload a single offline session to cloud
+async function uploadSession(id, e) {
+  if (e) e.stopPropagation();
+  if (!window.saveToCloud) { showToast('⚠️ ต้องล็อกอินก่อน'); return; }
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+  s.synced = true;
+  localStorage.setItem('necoPay_sessions', JSON.stringify(sessions));
+  await window.saveToCloud(sessions);
+  showToast('☁️ อัปโหลดแล้ว!');
+  openHistoryModal(); // re-render
+}
+
+// ========== HISTORY MODAL ==========
+function openHistoryModal() {
+  sessions = JSON.parse(localStorage.getItem('necoPay_sessions') || '[]');
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+
+  if (!sessions.length) {
+    list.innerHTML = '<div class="text-center text-slate-400 dark:text-slate-500 font-bold py-8 text-sm">🪹 ยังไม่มีประวัติการหาร</div>';
+  } else {
+    sessions.forEach((s) => {
+      const d = new Date(s.date);
+      const isOnline = !!s.synced;
+      const card = document.createElement('div');
+      card.className = `bg-white dark:bg-darkCard rounded-2xl border-2 p-4 space-y-2 transition-all ${isOnline ? 'session-online' : 'session-offline'}`;
+      card.innerHTML = `
+        <div class="flex justify-between items-start gap-2">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="font-black text-slate-700 dark:text-white text-sm">${d.toLocaleDateString('th-TH',{day:'2-digit',month:'short',year:'numeric'})} ${d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div>
+              <span class="${isOnline ? 'badge-online' : 'badge-offline'}">${isOnline ? '☁️ cloud' : '📴 ออฟไลน์'}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 dark:text-slate-500 font-bold mt-0.5 truncate">${s.members.map(m=>m.name).join(', ')} · ${s.items.filter(i=>i.price).length} รายการ</div>
+          </div>
+          <div class="text-right shrink-0">
+            <div class="font-black text-brand dark:text-green-300">${fmt(s.grand)} ฿</div>
+            <button onclick="deleteSession('${s.id}',event)" class="text-[10px] text-red-400 hover:text-red-600 font-bold transition-colors">ลบ</button>
+          </div>
         </div>
-
-    </div>
-
-    <template id="empty-wallet-template">
-        <div class="text-slate-400 dark:text-blue-300/50 text-sm font-medium flex flex-col items-center gap-2">
-            <span class="text-4xl opacity-50">🪹</span> กรอกราคาเพื่อคำนวณเงิน
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+          ${s.members.map((m,mi) => `
+            <div class="flex items-center gap-1.5 bg-slate-50 dark:bg-blue-950/30 rounded-xl px-2 py-1">
+              <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${colorOf(mi)}"></div>
+              <div class="text-[11px] font-bold truncate text-slate-600 dark:text-slate-300">${m.name}</div>
+              <div class="text-[11px] font-black ml-auto" style="color:${colorOf(mi)}">${fmt(s.totals[m.id]||0)}฿</div>
+            </div>
+          `).join('')}
         </div>
-    </template>
-
-    <!-- Main Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global State - สลับดึงเรท THB
-        const API_URL = "https://open.er-api.com/v6/latest/THB";
-        let currentRate = 0, focusedRowId = null;
-        let currentGlobalTotalBase = 0, currentGlobalTotalConverted = 0; 
-        
-        let auth, db, user = null;
-        let isInitialLoad = true;
-        let historyData = [];
-        let expandedReceiptId = null;
-        window.isCompareOpen = false;
-        let isCompareOpen = false; 
-        
-        const rawAppId = typeof __app_id !== 'undefined' ? String(__app_id) : 'necomart-app';
-        const appId = rawAppId.replace(/[\/\.]/g, '-');
-        const html = document.documentElement;
-
-        // Firebase Config
-        const MY_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyD-Vgayvdkl165ZO6kYCfv2OOfvZHqB59g",
-            authDomain: "necomart-github.firebaseapp.com",
-            projectId: "necomart-github",
-            storageBucket: "necomart-github.firebasestorage.app",
-            messagingSenderId: "181730496545",
-            appId: "1:181730496545:web:022815a30d6aafd4c65360"
-        };
-
-        const tabActive = document.getElementById('tab-active');
-        const tabHistory = document.getElementById('tab-history');
-        const viewActive = document.getElementById('active-view');
-        const viewHistory = document.getElementById('history-view');
-
-        // Helpers
-        function showToast(msg) {
-            const toast = document.getElementById('error-toast');
-            const msgEl = document.getElementById('error-toast-msg');
-            if(toast && msgEl) {
-                msgEl.innerText = msg;
-                toast.classList.replace('-translate-y-24', 'translate-y-0');
-                toast.classList.replace('opacity-0', 'opacity-100');
-                setTimeout(() => {
-                    toast.classList.replace('translate-y-0', '-translate-y-24');
-                    toast.classList.replace('opacity-100', 'opacity-0');
-                }, 3000);
-            }
-        }
-
-        function safeRun(fn) {
-            return function(...args) {
-                try { return fn(...args); } catch (err) { showToast("❌ " + (err.message || err)); }
-            }
-        }
-
-        function evaluateMath(str) {
-            try {
-                if (!str) return 0;
-                let preClean = str.toString().replace(/[xX]/g, '*');
-                let cleanStr = preClean.replace(/[^0-9+\-*/.]/g, '');
-                cleanStr = cleanStr.replace(/[+\-*/.]+$/, '');
-                if (!cleanStr) return 0;
-                const result = new Function(`return ${cleanStr}`)();
-                return isNaN(result) || !isFinite(result) ? 0 : parseFloat(result);
-            } catch (e) { return 0; }
-        }
-
-        function setTickboxImage(el, isTicked, theme = 'brand') {
-            const color = isTicked ? (theme === 'emerald' ? '#10b981' : '#7c6fea') : '#94a3b8';
-            const fill  = isTicked ? (theme === 'emerald' ? 'rgba(16,185,129,0.1)' : 'rgba(124,111,234,0.1)') : 'none';
-            el.innerHTML = isTicked
-                ? `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="4" fill="${fill}" stroke="${color}"/><polyline points="7 13 10 16 17 8"/></svg>`
-                : `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>`;
-        }
-
-        function switchView(view) {
-            const activeClass = "px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all bg-white text-[#00a650] shadow-sm";
-            const inactiveClass = "px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all text-white/70 hover:text-white";
-            
-            viewActive.style.display = 'none';
-            viewHistory.style.display = 'none';
-
-            if (view === 'active') {
-                tabActive.className = activeClass;
-                tabHistory.className = inactiveClass;
-                viewActive.style.display = 'block';
-            } else if (view === 'history') {
-                tabHistory.className = activeClass;
-                tabActive.className = inactiveClass;
-                viewHistory.style.display = 'block';
-                renderHistory();
-            }
-        }
-        tabActive.addEventListener('click', () => switchView('active'));
-        tabHistory.addEventListener('click', () => switchView('history'));
-        document.getElementById('logo-home-btn').addEventListener('click', () => { window.location.href = '/'; });
-
-        document.getElementById('theme-btn').addEventListener('click', () => {
-            const isDark = html.classList.contains('dark'); 
-            html.classList.toggle('dark', !isDark); 
-            document.getElementById('theme-icon').innerText = !isDark ? '🌙' : '☀️'; 
-            localStorage.setItem('theme_thb', !isDark ? 'dark' : 'light'); 
-        });
-
-        async function initApp() {
-            try {
-                // สลับฝั่ง ดึงเรทของ JPY (1 THB = ? JPY)
-                const r = await fetch(API_URL); const d = await r.json(); currentRate = d.rates.JPY;
-                localStorage.setItem('necomaid_cached_rate_thb', currentRate);
-                document.getElementById('rate-display').classList.remove('animate-pulse');
-                
-                // คำนวณกลับเพื่อแสดงผลให้เข้าใจง่าย (100 เยน = กี่บาท)
-                const thbFor100Jpy = 100 / currentRate;
-                document.getElementById('rate-display').innerHTML = `เรท: 100 เยน ≈ <span class="font-black">${thbFor100Jpy.toFixed(2)} บาท</span>`;
-            } catch (e) {
-                const cachedRate = parseFloat(localStorage.getItem('necomaid_cached_rate_thb'));
-                document.getElementById('rate-display').classList.remove('animate-pulse');
-                if (cachedRate > 0) {
-                    currentRate = cachedRate;
-                    const thbFor100Jpy = 100 / currentRate;
-                    document.getElementById('rate-display').innerHTML = `<span class="text-yellow-300">📴 เรทเก่า: 100 เยน ≈ <span class="font-black">${thbFor100Jpy.toFixed(2)} บาท</span></span>`;
-                } else {
-                    document.getElementById('rate-display').innerHTML = `<span class="text-red-400">⚠️ ไม่มีเรทสำรอง กรุณาต่อเน็ตก่อน</span>`;
-                }
-            }
-
-            const savedStr = localStorage.getItem('necomaid_calc_data_thb');
-            if (savedStr) {
-                try {
-                    const saved = JSON.parse(savedStr);
-                    if (saved.budgetData) {
-                        document.getElementById('budget-input').value = saved.budgetData.val || ''; 
-                        document.getElementById('budget-currency').value = saved.budgetData.currency || 'THB';
-                    }
-                    if (saved.compareData) {
-                        if (saved.compareData.isOpen) toggleComparePanel(true);
-                        if (saved.compareData.rows?.length) saved.compareData.rows.forEach(r => addCompareRow(r.price, r.qty, r.ticked));
-                        else { addCompareRow(); addCompareRow(); }
-                    } else { addCompareRow(); addCompareRow(); }
-                } catch(e){ addCompareRow(); addCompareRow(); }
-            } else { addCompareRow(); addCompareRow(); }
-            
-            updateAddTickedButton();
-            setTickboxImage(document.getElementById('compare-panel-tick'), isCompareOpen, 'brand');
-            if (html.classList.contains('dark')) document.getElementById('theme-icon').innerText = '🌙'; 
-            else document.getElementById('theme-icon').innerText = '☀️';
-
-            let firebaseConfigToUse = null;
-            let isCustomConfig = false;
-
-            if (typeof __firebase_config !== 'undefined') {
-                firebaseConfigToUse = JSON.parse(__firebase_config);
-            } else if (MY_FIREBASE_CONFIG.apiKey !== "วาง_API_KEY_ที่นี่") {
-                firebaseConfigToUse = MY_FIREBASE_CONFIG;
-                isCustomConfig = true;
-            }
-
-            if (firebaseConfigToUse) {
-                try {
-                    const fApp = initializeApp(firebaseConfigToUse);
-                    auth = getAuth(fApp);
-                    db = getFirestore(fApp);
-
-                    if (!isCustomConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth).catch(()=>{});
-                    }
-
-                    const provider = new GoogleAuthProvider();
-                    document.getElementById('google-login-btn').addEventListener('click', async () => {
-                        try {
-                            document.getElementById('google-login-btn').innerHTML = "⏳ รอแป๊บ...";
-                            await signInWithPopup(auth, provider);
-                            showToast("✅ ล็อกอิน Google สำเร็จ!");
-                        } catch (error) {
-                            showToast("❌ ล็อกอินไม่สำเร็จ");
-                            document.getElementById('google-login-btn').innerHTML = `<span class="bg-white text-mainBrand w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">G</span> ล็อกอิน`;
-                        }
-                    });
-
-                    document.getElementById('logout-btn').addEventListener('click', async () => {
-                        try {
-                            document.getElementById('logout-btn').innerText = "กำลังออก...";
-                            await signOut(auth);
-                            setTimeout(() => { window.location.reload(); }, 300);
-                        } catch (error) { console.error(error); }
-                    });
-
-                    onAuthStateChanged(auth, (u) => {
-                        user = u;
-                        const loginBtn = document.getElementById('google-login-btn');
-                        const profile = document.getElementById('user-profile');
-
-                        if (user) {
-                            if (user.isAnonymous) {
-                                loginBtn.classList.remove('hidden');
-                                profile.classList.add('hidden');
-                                profile.classList.remove('flex');
-                                loginBtn.innerHTML = `<span class="bg-white text-mainBrand w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black">G</span> ล็อกอิน`;
-                                loadOfflineActiveSession();
-                                updateHistoryArray();
-                            } else {
-                                loginBtn.classList.add('hidden');
-                                profile.classList.remove('hidden');
-                                profile.classList.add('flex');
-                                document.getElementById('user-avatar').src = user.photoURL || '';
-                                document.getElementById('user-name').innerText = user.displayName?.split(' ')[0] || 'ผู้ใช้';
-                                listenToActiveSession();
-                                listenToHistory();
-                            }
-                        } else {
-                            hideLoading();
-                        }
-                    });
-                } catch(e) {
-                    loadOfflineFallback();
-                }
-            } else {
-                loadOfflineFallback();
-            }
-        }
-
-        function hideLoading() {
-            const loader = document.getElementById('loading-screen');
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.remove(), 700);
-            }
-        }
-
-        function loadOfflineFallback() {
-            hideLoading();
-            loadOfflineActiveSession();
-            updateHistoryArray();
-            showToast("📴 ใช้งานแบบออฟไลน์");
-        }
-
-        // --- Offline / Online Storage Helpers ---
-        function loadOfflineActiveSession() {
-            document.getElementById('inputs-wrapper').innerHTML = '';
-            const saved = localStorage.getItem('necomart_offline_active_thb');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    if (data.items && data.items.length > 0) {
-                        data.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
-                        if(data.budget) {
-                            document.getElementById('budget-input').value = data.budget.val || '';
-                            if(data.budget.currency) document.getElementById('budget-currency').value = data.budget.currency;
-                        }
-                    } else {
-                        addRowUI('', false, '0', '', null, null, true);
-                    }
-                } catch(e) { addRowUI('', false, '0', '', null, null, true); }
-            } else {
-                addRowUI('', false, '0', '', null, null, true);
-            }
-            calculateTotal();
-            hideLoading();
-        }
-
-        function updateHistoryArray(cloudDocs = []) {
-            let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-            historyData = [...cloudDocs, ...offRecs].sort((a, b) => b.foldTime - a.foldTime);
-            
-            const activeEl = document.activeElement;
-            const isEditingHistory = activeEl && activeEl.closest('#history-list');
-
-            if (viewHistory.style.display === 'block' && !isEditingHistory) {
-                renderHistory();
-            }
-        }
-
-        // --- Firebase Listeners ---
-        let activeSessionUnsubscribe = null;
-        let pendingCloudData = null;
-
-        function listenToActiveSession() {
-            if (!user || user.isAnonymous) return;
-            const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'active_session_thb', 'current');
-            
-            if(activeSessionUnsubscribe) activeSessionUnsubscribe();
-            
-            activeSessionUnsubscribe = onSnapshot(ref, (snap) => {
-                if (isInitialLoad) {
-                    const localActiveStr = localStorage.getItem('necomart_offline_active_thb');
-                    const localActive = localActiveStr ? JSON.parse(localActiveStr) : null;
-                    const hasLocalItems = localActive && localActive.items && localActive.items.length > 0;
-                    
-                    const hasCloudItems = snap.exists() && snap.data().items && snap.data().items.length > 0;
-
-                    if (hasLocalItems && hasCloudItems) {
-                        pendingCloudData = snap.data();
-                        document.getElementById('merge-modal').classList.remove('hidden');
-                        setTimeout(() => { document.getElementById('merge-modal').classList.remove('opacity-0'); document.getElementById('merge-modal').classList.add('opacity-100'); }, 10);
-                        hideLoading();
-                    } else if (hasLocalItems && !hasCloudItems) {
-                        loadOfflineActiveSession();
-                        saveData(); 
-                        localStorage.removeItem('necomart_offline_active_thb');
-                        hideLoading();
-                    } else {
-                        renderCloudSession(snap.data());
-                    }
-                    isInitialLoad = false;
-                } else if (!document.getElementById('merge-modal').classList.contains('opacity-100')) {
-                    // Update ปกติ
-                }
-            }, (err) => console.error(err));
-        }
-
-        function renderCloudSession(data) {
-            document.getElementById('inputs-wrapper').innerHTML = '';
-            if (data && data.items && data.items.length > 0) {
-                const firstTs = data.items[0].timestamp;
-                if (new Date(firstTs).toDateString() !== new Date().toDateString()) {
-                    const formatD = (d) => `${d.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][d.getMonth()]}`;
-                    document.getElementById('old-session-date').innerText = formatD(new Date(firstTs));
-                    document.getElementById('old-session-prompt').classList.remove('hidden');
-                    document.getElementById('old-session-prompt').classList.add('flex');
-                }
-
-                data.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
-                if(data.budget) {
-                    document.getElementById('budget-input').value = data.budget.val || '';
-                    if(data.budget.currency) document.getElementById('budget-currency').value = data.budget.currency;
-                }
-            } else {
-                addRowUI('', false, '0', '', null, null, true);
-            }
-            calculateTotal();
-            hideLoading();
-        }
-
-        // --- Merge Modal Actions ---
-        const closeMergeModal = () => {
-            document.getElementById('merge-modal').classList.remove('opacity-100');
-            document.getElementById('merge-modal').classList.add('opacity-0');
-            setTimeout(() => document.getElementById('merge-modal').classList.add('hidden'), 300);
-            localStorage.removeItem('necomart_offline_active_thb');
-        };
-
-        document.getElementById('merge-combine-btn').addEventListener('click', () => {
-            const localActive = JSON.parse(localStorage.getItem('necomart_offline_active_thb'));
-            document.getElementById('inputs-wrapper').innerHTML = '';
-            
-            if(pendingCloudData && pendingCloudData.items) {
-                pendingCloudData.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
-                if(pendingCloudData.budget) {
-                    document.getElementById('budget-input').value = pendingCloudData.budget.val || '';
-                }
-            }
-            if(localActive && localActive.items) {
-                localActive.items.forEach(i => addRowUI(i.rawVal, i.hidden, i.discount, i.name, i.timestamp, i.id, true));
-            }
-            calculateTotal();
-            saveData();
-            closeMergeModal();
-            showToast("✅ รวมข้อมูลเรียบร้อย");
-        });
-
-        document.getElementById('merge-overwrite-btn').addEventListener('click', () => {
-            loadOfflineActiveSession();
-            saveData(); 
-            closeMergeModal();
-            showToast("✅ ใช้ข้อมูลออฟไลน์ทับบนคลาวด์");
-        });
-
-        document.getElementById('merge-discard-btn').addEventListener('click', () => {
-            renderCloudSession(pendingCloudData);
-            closeMergeModal();
-            showToast("✅ ใช้ข้อมูลจากคลาวด์");
-        });
-
-
-        function listenToHistory() {
-            if (!user || user.isAnonymous) return;
-            const ref = collection(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb');
-            onSnapshot(ref, (snap) => {
-                const cloudArr = [];
-                snap.forEach(d => cloudArr.push({ id: d.id, ...d.data(), isOffline: false }));
-                updateHistoryArray(cloudArr);
-            }, (err) => console.error(err));
-        }
-
-        // --- Save Data Logic ---
-        const saveData = safeRun(() => {
-            const rows = [];
-            document.getElementById('inputs-wrapper').querySelectorAll('.row-container').forEach(row => {
-                const input = row.querySelector('.price-input');
-                const note = row.querySelector('.note-input').value; // รวมเหลืออันเดียว
-                if (input) rows.push({ 
-                    id: row.dataset.rowId,
-                    rawVal: input.value,
-                    val: evaluateMath(input.value), 
-                    note: note,
-                    hidden: row.dataset.hidden === 'true', 
-                    discount: row.dataset.discount || '0',
-                    timestamp: parseInt(row.dataset.timestamp)
-                });
-            });
-            const budgetData = { val: document.getElementById('budget-input').value, currency: document.getElementById('budget-currency').value };
-            
-            const compareRows = [];
-            document.querySelectorAll('.compare-row').forEach(row => {
-                compareRows.push({ price: row.querySelector('.comp-price').value, qty: row.querySelector('.comp-qty').value, ticked: row.dataset.ticked === 'true' });
-            });
-            const compareData = { isOpen: isCompareOpen, rows: compareRows };
-            
-            localStorage.setItem('necomaid_calc_data_thb', JSON.stringify({ budgetData, compareData }));
-
-            const hasItems = rows.some(r => r.val > 0);
-            document.getElementById('fold-bill-container').style.display = hasItems ? 'block' : 'none';
-
-            const activeData = { items: rows.map(r => ({...r, name: r.note})), budget: budgetData };
-
-            if (!isInitialLoad) {
-                if (user && !user.isAnonymous && db) {
-                    const activeDocRef = doc(db, 'artifacts', appId, 'users', user.uid, 'active_session_thb', 'current');
-                    setDoc(activeDocRef, activeData, { merge: true }).catch(()=>{});
-                } else {
-                    localStorage.setItem('necomart_offline_active_thb', JSON.stringify(activeData));
-                }
-            }
-        });
-
-        // --- Universal Add Row UI ---
-        const addRowUI = safeRun((val = '', isH = false, disc = '0', note = '', ts = null, rowId = null, skipSave = false) => {
-            const rId = rowId || Date.now().toString() + Math.random().toString(36).substr(2, 5);
-            const timestamp = ts || Date.now();
-            const wrapper = document.getElementById('inputs-wrapper');
-            
-            const row = document.createElement('div'); 
-            row.className = 'row-container flex flex-col gap-2 animate-pop bg-green-50 dark:bg-green-900/10 p-2 sm:p-3 rounded-2xl border border-green-100 dark:border-green-800 transition-all';
-            row.dataset.rowId = rId; 
-            row.dataset.hidden = isH ? "true" : "false"; 
-            row.dataset.discount = disc;
-            row.dataset.timestamp = timestamp;
-
-            // แก้ Layout: ชื่อรายการขึ้นก่อน ราคาตามมา
-            row.innerHTML = `
-                <div class="flex flex-col sm:flex-row gap-2 w-full">
-                    <div class="flex items-center gap-2 w-full">
-                        <!-- 1. ชื่อรายการ (ยืดหยุ่นเต็มพื้นที่) -->
-                        <div class="flex-1 relative">
-                            <input type="text" value="${note}" placeholder="📝 ชื่อรายการ..." class="note-input w-full px-3 py-3 bg-white/60 dark:bg-darkCard border-2 border-transparent focus:border-green-200 dark:focus:border-green-700 rounded-xl text-sm font-bold focus:outline-none transition-all text-slate-700 dark:text-blue-100 placeholder-slate-400">
-                        </div>
-                        
-                        <!-- 2. ราคา (ขนาดคงที่) -->
-                        <div class="relative w-28 sm:w-32 shrink-0">
-                            <span class="absolute inset-y-0 left-0 pl-2 sm:pl-3 flex items-center text-fmGreen font-bold text-lg">฿</span>
-                            <input type="text" inputmode="decimal" value="${val}" placeholder="ราคา" class="price-input w-full pl-6 sm:pl-8 pr-2 py-3 bg-white dark:bg-darkCard border-2 border-green-100 dark:border-green-800 rounded-xl font-black focus:border-fmGreen focus:outline-none transition-all text-slate-800 dark:text-blue-100 text-right">
-                        </div>
-                        
-                        <!-- 3. ส่วนแสดงผลแปลงค่าและปุ่มแอคชัน -->
-                        <div class="w-14 sm:w-20 text-right shrink-0 pr-1 flex flex-col justify-center">
-                            <span class="converted-display text-[10px] sm:text-xs font-bold text-slate-400 truncate block"></span>
-                        </div>
-                        <div class="flex gap-1 pl-2 border-l-2 border-green-100 dark:border-green-800 shrink-0 h-full items-center">
-                            <button class="focus-btn w-8 h-8 flex items-center justify-center rounded-lg border border-green-200 dark:border-green-700 text-slate-400 transition-all text-sm" title="Focus">🎯</button>
-                            <button class="discount-btn w-8 h-8 flex items-center justify-center rounded-lg border border-green-200 dark:border-green-700 text-slate-400 font-black text-sm" title="Discount">%</button>
-                            <button class="delete-btn w-8 h-8 flex items-center justify-center rounded-lg border border-red-100 dark:border-red-900/30 text-red-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 text-sm transition-all" title="Delete">🗑️</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="discount-area ${disc > 0 ? 'flex' : 'hidden'} items-center gap-3 px-3 pt-2 pb-2 border-t border-green-100/50 dark:border-green-800/50 mt-1">
-                    <span class="text-[10px] font-black text-fmGreen">ลด</span>
-                    <input type="range" min="0" max="100" value="${disc}" class="discount-slider flex-1 h-1.5 appearance-none bg-green-200 rounded-lg accent-fmGreen">
-                    <span class="discount-label text-[11px] font-black w-8 text-right">${disc}%</span>
-                </div>
-            `;
-            
-            wrapper.appendChild(row);
-
-            const inputPrice = row.querySelector('.price-input');
-            const noteInput = row.querySelector('.note-input');
-            const dArea = row.querySelector('.discount-area');
-            const dSlider = row.querySelector('.discount-slider');
-
-            inputPrice.addEventListener('input', () => calculateTotal());
-            noteInput.addEventListener('input', () => saveData());
-            
-            // Enter Logistics for Price (กระโดดไประคาถัดไป)
-            inputPrice.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.keyCode === 13) {
-                    e.preventDefault();
-                    const allPrices = Array.from(wrapper.querySelectorAll('.price-input'));
-                    const idx = allPrices.indexOf(inputPrice);
-                    
-                    if (idx < allPrices.length - 1) {
-                        allPrices[idx + 1].focus(); // ไปราคาอันถัดไป
-                    } else {
-                        if (inputPrice.value !== '' || noteInput.value !== '') {
-                            addRowUI();
-                            const newPrices = Array.from(wrapper.querySelectorAll('.price-input'));
-                            newPrices[newPrices.length - 1].focus(); // ไปราคากล่องใหม่
-                        }
-                    }
-                }
-            });
-
-            // Enter Logistics for Name (กระโดดไปชื่อถัดไป)
-            noteInput.addEventListener('keydown', (e) => { 
-                if (e.key === 'Enter' || e.keyCode === 13) { 
-                    e.preventDefault();
-                    const allNotes = Array.from(wrapper.querySelectorAll('.note-input'));
-                    const idx = allNotes.indexOf(noteInput);
-                    
-                    if (idx < allNotes.length - 1) {
-                        allNotes[idx + 1].focus(); // ไปชื่ออันถัดไป
-                    } else {
-                        if (inputPrice.value !== '' || noteInput.value !== '') {
-                            addRowUI();
-                            const newNotes = Array.from(wrapper.querySelectorAll('.note-input'));
-                            newNotes[newNotes.length - 1].focus(); // ไปชื่อกล่องใหม่
-                        }
-                    }
-                } 
-            });
-
-            row.querySelector('.focus-btn').addEventListener('click', () => { 
-                focusedRowId = focusedRowId === rId ? null : rId; 
-                updateFocusStyles(); calculateTotal(); 
-            });
-
-            row.querySelector('.discount-btn').addEventListener('click', () => { dArea.classList.toggle('hidden'); dArea.classList.toggle('flex'); });
-            dSlider.addEventListener('input', (e) => { 
-                const v = e.target.value; 
-                row.querySelector('.discount-label').innerText = v + '%'; 
-                row.dataset.discount = v; 
-                calculateTotal(); 
-            });
-            row.querySelector('.delete-btn').addEventListener('click', () => { 
-                if (wrapper.querySelectorAll('.row-container').length > 1) { row.remove(); calculateTotal(); } 
-                else { inputPrice.value = ''; noteInput.value = ''; calculateTotal(); } 
-            });
-
-            if(!skipSave) {
-                noteInput.focus(); // ตั้งให้โฟกัสที่ชื่อรายการตอนกดเพิ่ม
-                saveData();
-            }
-        });
-
-        // --- Core Calculations ---
-        const calculateTotal = safeRun(() => {
-            let totalBase = 0, targetPrep = 0;
-            const wrapper = document.getElementById('inputs-wrapper');
-            const totalThbEl = document.getElementById('total-thb');
-            const totalJpyEl = document.getElementById('total-jpy');
-
-            wrapper.querySelectorAll('.row-container').forEach(row => {
-                const input = row.querySelector('.price-input');
-                const base = evaluateMath(input.value), rId = row.dataset.rowId;
-                const disp = row.querySelector('.converted-display'), isH = row.dataset.hidden === 'true', disc = parseFloat(row.dataset.discount) || 0;
-                
-                if (base > 0) {
-                    const val = base * (1 - disc / 100);
-                    const rConverted = val * currentRate; // THB to JPY
-                    if (isH) disp.innerHTML = `<span class="line-through opacity-30">${rConverted.toFixed(1)} ¥</span>`;
-                    else { 
-                        totalBase += val; 
-                        disp.innerHTML = `<span class="text-fmGreen font-black">${rConverted.toFixed(1)} ¥</span>`; 
-                        if (rId === focusedRowId) targetPrep = Math.ceil(rConverted); // กระเป๋าตังค์โฟกัสคำนวณเป็นเยน
-                    }
-                } else disp.innerText = "";
-            });
-
-            const totalConverted = Math.ceil(totalBase * currentRate);
-            
-            // หน้าจอสลับฝั่ง (ซ้ายเป็น THB หลัก, ขวาเป็น JPY รอง)
-            totalThbEl.innerText = totalBase.toLocaleString(undefined, {maximumFractionDigits: 2});
-            totalJpyEl.innerText = totalConverted.toLocaleString();
-
-            currentGlobalTotalBase = totalBase; 
-            currentGlobalTotalConverted = totalConverted;
-            if (!focusedRowId) targetPrep = totalConverted; // กระเป๋าตังค์รวมคำนวณเป็นเยน
-            
-            // Render Coins/Bills (ธนบัตรและเหรียญญี่ปุ่น 10000, 5000, 1000...)
-            const walletContainer = document.getElementById('wallet-container');
-            walletContainer.innerHTML = '';
-            const emptyWalletTpl = document.getElementById('empty-wallet-template');
-            const denominations = [
-                { val: 10000, type: 'bill', css: 'from-amber-100 to-orange-100 border-amber-300 text-amber-900' },
-                { val: 5000, type: 'bill', css: 'from-purple-100 to-fuchsia-100 border-purple-300 text-purple-900' },
-                { val: 1000, type: 'bill', css: 'from-blue-100 to-cyan-100 border-blue-300 text-blue-900' },
-                { val: 500, type: 'coin', css: 'bg-gradient-to-br from-yellow-100 to-yellow-300 border-[3px] border-yellow-400 text-yellow-800' },
-                { val: 100, type: 'coin', css: 'bg-gradient-to-br from-slate-100 to-slate-200 border-[3px] border-slate-300 text-slate-700' },
-                { val: 50, type: 'coin', css: 'bg-gradient-to-br from-zinc-100 to-zinc-300 border-[3px] border-zinc-400 text-zinc-800' },
-                { val: 10, type: 'coin', css: 'bg-gradient-to-br from-yellow-600 to-yellow-700 border-[2px] border-yellow-800 text-white' },
-                { val: 5, type: 'coin', css: 'bg-gradient-to-br from-yellow-300 to-yellow-500 border-[2px] border-yellow-600 text-yellow-900' },
-                { val: 1, type: 'coin', css: 'bg-gradient-to-br from-slate-300 to-slate-400 border-[2px] border-slate-500 text-slate-800' }
-            ];
-            
-            const createMoneyStack = (denom, count, delay) => {
-                const wrap = document.createElement('div'); wrap.className = 'relative animate-pop transition-transform hover:-translate-y-2'; wrap.style.animationDelay = `${delay * 0.05}s`;
-                const isC = denom.type === 'coin'; if (isC) wrap.style.marginTop = `${(count-1)*4}px`; else wrap.style.marginBottom = `${(count-1)*6}px`;
-                for (let i = 0; i < count; i++) {
-                    const el = document.createElement('div'); el.className = (i === 0 ? 'relative' : 'absolute top-0 left-0') + ' flex items-center justify-center font-black border-black/10';
-                    if (i !== 0) el.style.transform = `translateY(${i * (isC ? -4 : 6)}px)`; el.style.zIndex = isC ? 10 + i : 20 - i;
-                    if (!isC) { el.className += ` paper-bill w-20 sm:w-28 rounded bg-gradient-to-br border ${denom.css}`; el.innerHTML = `<span>${denom.val}</span>`; } 
-                    else { const size = denom.val === 500 ? 'w-14 h-14' : denom.val >= 50 ? 'w-12 h-12' : 'w-10 h-10'; el.className += ` coin-metal rounded-full ${size} ${denom.css}`; if (i === count-1) el.innerHTML = `<span class="text-xs">${denom.val}</span>`; }
-                    wrap.appendChild(el);
-                }
-                return wrap;
-            };
-
-            // แสดงกระเป๋าตังค์อิงตาม targetPrep (ยอดรวมเยน)
-            if (targetPrep > 0) {
-                let rem = Math.ceil(targetPrep), idx = 0;
-                denominations.forEach(d => { let c = Math.floor(rem / d.val); if (c > 0) { rem %= d.val; while (c > 0) { let s = Math.min(c, 5); walletContainer.appendChild(createMoneyStack(d, s, idx++)); c -= s; } } });
-            } else walletContainer.appendChild(emptyWalletTpl.content.cloneNode(true));
-            
-            updateBudgetUI(); 
-            if(!isInitialLoad) saveData();
-        });
-
-        // --- Fold Bill ---
-        document.getElementById('fold-bill-btn').addEventListener('click', (e) => {
-            const hasItems = Array.from(document.getElementById('inputs-wrapper').querySelectorAll('.row-container')).some(r => evaluateMath(r.querySelector('.price-input').value) > 0);
-            if (!hasItems) { showToast("ไม่มีรายการให้พับ"); return; }
-            performFoldLogic(e.currentTarget);
-        });
-
-        const performFoldLogic = async (useBtn) => {
-            const rows = [];
-            let totalBase = 0;
-            document.getElementById('inputs-wrapper').querySelectorAll('.row-container').forEach(row => {
-                const input = row.querySelector('.price-input');
-                const v = evaluateMath(input.value);
-                if (v > 0) {
-                    const note = row.querySelector('.note-input').value; // เอาจาก note-input
-                    const disc = parseFloat(row.dataset.discount) || 0;
-                    const finalBase = v * (1 - disc / 100);
-                    totalBase += finalBase;
-                    rows.push({
-                        id: row.dataset.rowId,
-                        name: note || '',
-                        price: finalBase, // นี่คือราคา THB
-                        rawVal: input.value,
-                        discount: disc,
-                        timestamp: parseInt(row.dataset.timestamp)
-                    });
-                }
-            });
-
-            if(rows.length === 0) return;
-
-            const foldTime = Date.now();
-            const formatD = (d) => `${d.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][d.getMonth()]}`;
-            
-            const title = formatD(new Date(rows[0].timestamp));
-            const totalConverted = Math.ceil(totalBase * currentRate);
-
-            const receiptData = {
-                id: foldTime.toString(),
-                title,
-                items: rows,
-                totalMain: totalBase,     
-                totalSub: totalConverted,
-                budget: evaluateMath(document.getElementById('budget-input').value) || 0,
-                foldTime
-            };
-
-            try {
-                if(useBtn) {
-                    useBtn.querySelector('span:last-child').innerText = "กำลังจัดเก็บ...";
-                    useBtn.classList.add('opacity-50', 'pointer-events-none');
-                }
-
-                if (user && !user.isAnonymous && db) {
-                    const rRef = doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', receiptData.id);
-                    await setDoc(rRef, receiptData);
-                } else {
-                    receiptData.isOffline = true;
-                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                    offRecs.push(receiptData);
-                    localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                    updateHistoryArray();
-                }
-                
-                document.getElementById('inputs-wrapper').innerHTML = '';
-                document.getElementById('budget-input').value = '';
-                localStorage.removeItem('necomart_offline_active_thb');
-                
-                addRowUI();
-                calculateTotal();
-                showToast("🧾 พับบิลเก็บเรียบร้อย!");
-
-                document.getElementById('old-session-prompt').classList.add('hidden');
-                document.getElementById('old-session-prompt').classList.remove('flex');
-                
-                if(useBtn) {
-                    useBtn.querySelector('span:last-child').innerText = "พับบิลเก็บ (จบการซื้อรอบนี้)";
-                    useBtn.classList.remove('opacity-50', 'pointer-events-none');
-                }
-            } catch (e) {
-                console.error(e);
-                showToast("❌ พับบิลไม่สำเร็จ");
-                if(useBtn) {
-                    useBtn.querySelector('span:last-child').innerText = "พับบิลเก็บ (จบการซื้อรอบนี้)";
-                    useBtn.classList.remove('opacity-50', 'pointer-events-none');
-                }
-            }
-        };
-
-        document.getElementById('keep-old-session-btn').addEventListener('click', () => {
-            const prompt = document.getElementById('old-session-prompt');
-            prompt.classList.add('hidden');
-            prompt.classList.remove('flex');
-        });
-        document.getElementById('fold-old-session-btn').addEventListener('click', (e) => performFoldLogic(e.currentTarget));
-
-        // --- Unfold Modal Logic ---
-        const unfoldModal = document.getElementById('unfold-modal');
-        
-        function openUnfoldModal() {
-            const list = document.getElementById('unfold-list');
-            if(historyData.length === 0) {
-                list.innerHTML = '<div class="py-10 text-center text-slate-400 font-bold">ไม่มีบิลให้คลี่</div>';
-            } else {
-                list.innerHTML = historyData.map(r => `
-                    <div class="unfold-item p-3 bg-white dark:bg-darkCard rounded-2xl shadow-sm border border-slate-200 dark:border-green-800/40 flex justify-between items-center cursor-pointer hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all group" data-id="${r.id}" data-offline="${r.isOffline || false}">
-                        <div>
-                            <div class="font-black text-slate-700 dark:text-blue-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">${r.title} ${r.isOffline ? ' <span class="text-[10px] bg-blue-100 text-blue-600 px-1.5 rounded">ออฟไลน์</span>' : ''}</div>
-                            <div class="text-[10px] text-slate-400 font-bold mt-1">${r.items.length} รายการ • รวม ${Number(r.totalMain || 0).toLocaleString('th-TH', {maximumFractionDigits: 2})} ฿ (${(r.totalSub || 0).toLocaleString()} ¥)</div>
-                        </div>
-                        <div class="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-500 flex items-center justify-center font-bold shadow-inner group-hover:scale-110 transition-transform">
-                            📥
-                        </div>
-                    </div>
-                `).join('');
-            }
-            unfoldModal.classList.remove('hidden');
-            setTimeout(() => { unfoldModal.classList.remove('opacity-0'); unfoldModal.classList.add('opacity-100'); }, 10);
-        }
-        
-        function closeUnfoldModal() {
-            unfoldModal.classList.remove('opacity-100');
-            unfoldModal.classList.add('opacity-0');
-            setTimeout(() => { unfoldModal.classList.add('hidden'); }, 300);
-        }
-
-        document.getElementById('open-unfold-modal-btn').addEventListener('click', openUnfoldModal);
-        document.getElementById('close-unfold-modal').addEventListener('click', closeUnfoldModal);
-        
-        document.getElementById('unfold-list').addEventListener('click', async (e) => {
-            const item = e.target.closest('.unfold-item');
-            if(!item) return;
-            const recId = item.dataset.id;
-            const isOffline = item.dataset.offline === 'true';
-            const receipt = historyData.find(r => r.id === recId);
-            if(!receipt) return;
-
-            const hasActiveItems = Array.from(document.getElementById('inputs-wrapper').querySelectorAll('.row-container')).some(r => evaluateMath(r.querySelector('.price-input').value) > 0);
-
-            const doUnfold = async () => {
-                if(receipt.budget) document.getElementById('budget-input').value = receipt.budget;
-                
-                if (!hasActiveItems) document.getElementById('inputs-wrapper').innerHTML = '';
-                
-                receipt.items.forEach(i => {
-                    addRowUI(i.rawVal || i.price, i.hidden || false, i.discount, i.name, i.timestamp, i.id, true);
-                });
-                
-                calculateTotal();
-                saveData(); 
-                
-                if (isOffline) {
-                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                    offRecs = offRecs.filter(r => r.id !== recId);
-                    localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                    updateHistoryArray();
-                } else if (user && !user.isAnonymous && db) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', recId));
-                }
-                showToast("📝 คลี่บิลกลับมาทำต่อแล้ว");
-                closeUnfoldModal();
-            };
-
-            if (hasActiveItems) {
-                if(confirm("ตะกร้าปัจจุบันมีรายการอยู่ ต้องการนำบิลนี้มารวมด้วยใช่ไหม? (ถ้ายกเลิก บิลนี้จะไม่ถูกคลี่)")) {
-                    doUnfold();
-                }
-            } else {
-                doUnfold();
-            }
-        });
-
-        // --- Receipt Modal Logic ---
-        const receiptModal = document.getElementById('receipt-modal');
-        function openReceiptModal(receipt) {
-            // เติมข้อมูลลงในใบเสร็จ
-            const d = new Date(receipt.foldTime);
-            document.getElementById('receipt-date').innerText = d.toLocaleString('th-TH');
-            document.getElementById('receipt-id').innerText = `ID: ${receipt.id.slice(-8)}`;
-            
-            const itemsContainer = document.getElementById('receipt-items');
-            itemsContainer.innerHTML = receipt.items.map(item => {
-                const name = item.name || 'ไม่มีชื่อรายการ';
-                const price = Number(item.price).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                const discText = item.discount > 0 ? `<div class="text-[10px] text-gray-500">- ลด ${item.discount}%</div>` : '';
-                // ใช้ break-words / whitespace-pre-wrap เพื่อป้องกันการตัดคำล้นขอบ
-                return `
-                    <div class="flex justify-between items-start text-sm py-1">
-                        <div class="w-[65%] pr-2 break-words whitespace-pre-wrap">${name}${discText}</div>
-                        <div class="w-[35%] text-right shrink-0">${price}</div>
-                    </div>
-                `;
-            }).join('');
-            
-            document.getElementById('receipt-total-thb').innerText = Number(receipt.totalMain).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2}) + ' ฿';
-            document.getElementById('receipt-total-jpy').innerText = Number(receipt.totalSub).toLocaleString() + ' ¥';
-            
-            const rateStr = localStorage.getItem('necomaid_cached_rate_thb');
-            const thbFor100 = rateStr ? (100 / parseFloat(rateStr)).toFixed(2) : '-';
-            document.getElementById('receipt-rate').innerText = thbFor100;
-
-            receiptModal.classList.remove('hidden');
-            setTimeout(() => { 
-                receiptModal.classList.remove('opacity-0'); 
-                receiptModal.classList.add('opacity-100'); 
-            }, 10);
-        }
-
-        document.getElementById('close-receipt-modal').addEventListener('click', () => {
-            receiptModal.classList.remove('opacity-100');
-            receiptModal.classList.add('opacity-0');
-            setTimeout(() => { receiptModal.classList.add('hidden'); }, 300);
-        });
-
-        document.getElementById('download-receipt-btn').addEventListener('click', async () => {
-            const target = document.getElementById('receipt-capture-area');
-            const btn = document.getElementById('download-receipt-btn');
-            
-            try {
-                btn.innerHTML = '⏳ กำลังบันทึก...';
-                btn.classList.add('opacity-50');
-                
-                const canvas = await html2canvas(target, {
-                    scale: 2, // ความคมชัด
-                    useCORS: true,
-                    backgroundColor: null
-                });
-                
-                const link = document.createElement('a');
-                link.download = `NecoMart_Receipt_${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
-                
-                btn.innerHTML = '✅ บันทึกสำเร็จ!';
-                setTimeout(() => {
-                    btn.innerHTML = '<span>📸</span> บันทึกรูปใบเสร็จ';
-                    btn.classList.remove('opacity-50');
-                }, 2000);
-            } catch (err) {
-                console.error(err);
-                showToast("❌ บันทึกใบเสร็จไม่สำเร็จ");
-                btn.innerHTML = '<span>📸</span> บันทึกรูปใบเสร็จ';
-                btn.classList.remove('opacity-50');
-            }
-        });
-
-
-        // --- History Render ---
-        function renderHistory() {
-            const historyList = document.getElementById('history-list');
-            if (historyData.length === 0) {
-                historyList.innerHTML = `<div class="text-center py-12 opacity-50"><div class="text-5xl mb-3">📂</div><p class="font-bold text-slate-500 dark:text-blue-200">ยังไม่มีประวัติการซื้อ</p></div>`;
-                return;
-            }
-
-            historyList.innerHTML = historyData.map(receipt => {
-                const isExpanded = expandedReceiptId === receipt.id;
-                const formatNum = (n) => isNaN(n) ? '0' : Number(n).toLocaleString('th-TH', {maximumFractionDigits: 2});
-                
-                const borderClass = receipt.isOffline 
-                    ? 'border-blue-400 dark:border-blue-500 shadow-blue-100/50 dark:shadow-none' 
-                    : 'border-green-400 dark:border-green-500 shadow-green-100/50 dark:shadow-none';
-                
-                const uploadBtnHtml = (receipt.isOffline && user && !user.isAnonymous) 
-                    ? `<button class="upload-receipt-btn px-4 py-1.5 text-[10px] font-black text-white bg-blue-500 hover:bg-blue-600 rounded-lg shadow-sm transition-all active:scale-95" data-id="${receipt.id}">☁️ อัปโหลด</button>` 
-                    : '';
-
-                let itemsHtml = '';
-                if (isExpanded) {
-                    itemsHtml = `
-                    <div class="p-3 bg-slate-50 dark:bg-darkBg/50 border-t border-slate-100 dark:border-green-900/30">
-                        <div class="mb-4 flex items-center justify-between gap-2">
-                            <div class="flex items-center gap-2 bg-white dark:bg-darkCard p-2 sm:px-3 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50 w-full">
-                                <span class="text-xl">💼</span>
-                                <span class="text-[11px] sm:text-sm font-bold text-slate-600 dark:text-blue-200 whitespace-nowrap">งบประมาณบิลนี้:</span>
-                                <input type="text" inputmode="decimal" value="${receipt.budget || ''}" placeholder="ระบุตัวเลข" class="hist-budget-input w-full bg-transparent text-sm sm:text-base font-black text-slate-800 dark:text-blue-100 outline-none text-right focus:text-fmGreen transition-colors">
-                            </div>
-                            <button class="view-receipt-btn px-4 py-2 h-full whitespace-nowrap bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-300 font-bold text-xs rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-sm transition-all active:scale-95 flex items-center gap-1">
-                                🧾 ใบเสร็จ
-                            </button>
-                        </div>
-                        <div class="space-y-2 mb-4">
-                            ${receipt.items.map(item => `
-                                <div class="history-item-row flex flex-col gap-2 bg-white dark:bg-darkCard p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700/50" data-itemid="${item.id}">
-                                    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full">
-                                        <!-- สลับลำดับเป็น Note -> Price เหมือนกัน -->
-                                        <div class="w-full flex-1 relative">
-                                            <input type="text" value="${item.name}" placeholder="📝 โน้ต..." class="hist-note-input w-full bg-slate-50 dark:bg-darkBg border border-transparent focus:border-green-200 dark:focus:border-green-700 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 dark:text-blue-100 outline-none transition-all">
-                                        </div>
-                                        <div class="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
-                                            <div class="relative w-28 shrink-0">
-                                                <span class="absolute inset-y-0 left-0 pl-2 flex items-center text-slate-400 font-bold text-sm">฿</span>
-                                                <input type="text" inputmode="decimal" value="${item.rawVal || item.price}" class="hist-price-input w-full pl-6 pr-2 py-2 bg-slate-50 dark:bg-darkBg border border-slate-200 dark:border-green-800 rounded-lg text-sm font-black text-slate-800 dark:text-blue-100 outline-none focus:border-fmGreen transition-all text-right">
-                                            </div>
-                                            <div class="text-right w-16 shrink-0 mr-1">
-                                                 <div class="text-sm font-black text-fmGreen">${Math.ceil((item.price) * currentRate).toLocaleString()} ¥</div>
-                                            </div>
-                                            <div class="flex gap-1 pl-1 border-l border-slate-100 dark:border-slate-700 shrink-0">
-                                                <button class="hist-discount-btn w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 font-black text-sm" title="Discount">%</button>
-                                                <button class="hist-del-btn w-8 h-8 flex items-center justify-center rounded-lg border border-red-100 dark:border-red-900/30 text-red-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/50 text-sm transition-all" title="Delete">🗑️</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="hist-discount-area ${item.discount > 0 ? 'flex' : 'hidden'} items-center gap-3 px-2 pt-2 pb-1 border-t border-slate-100 dark:border-slate-700/50 mt-1">
-                                        <span class="text-[10px] font-black text-fmGreen">ลด</span>
-                                        <input type="range" min="0" max="100" value="${item.discount || 0}" class="hist-discount-slider flex-1 h-1.5 appearance-none bg-slate-200 dark:bg-slate-700 rounded-lg accent-fmGreen">
-                                        <span class="hist-discount-label text-[11px] font-black w-8 text-right">${item.discount || 0}%</span>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <div class="flex justify-between items-center pt-3 border-t border-slate-200 dark:border-slate-700">
-                            <div>${uploadBtnHtml}</div>
-                            <button class="del-receipt-btn px-6 py-2 text-xs font-bold text-red-500 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl border border-red-200 dark:border-red-900/50 transition-colors shadow-sm" data-confirm="false">🗑️ ลบทิ้งบิลนี้</button>
-                        </div>
-                    </div>`;
-                }
-
-                return `
-                <div class="receipt-card bg-white dark:bg-darkCard rounded-2xl shadow-sm border-2 ${borderClass} overflow-hidden transition-all duration-300" data-id="${receipt.id}" data-offline="${receipt.isOffline}">
-                    <div class="receipt-header p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-green-900/10 flex justify-between items-center transition-colors">
-                        <div>
-                            <div class="font-black text-slate-700 dark:text-green-300">${receipt.title} ${receipt.isOffline ? '<span class="ml-1 text-[9px] bg-blue-100 text-blue-600 px-1.5 rounded-full uppercase">Offline</span>' : ''}</div>
-                            <div class="text-[10px] sm:text-xs text-slate-400 font-bold mt-0.5">งบ: <span class="receipt-budget-display">${formatNum(receipt.budget)}</span> ฿ • ${receipt.items.length} ชิ้น</div>
-                        </div>
-                        <div class="text-right flex items-center gap-3 sm:gap-4">
-                            <div class="text-right">
-                                <div class="text-[10px] sm:text-xs text-slate-400 font-bold uppercase tracking-widest">ยอดรวมบิล</div>
-                                <div class="font-black text-fmGreen text-lg sm:text-xl leading-none mt-0.5"><span class="receipt-total-main-display">${formatNum(receipt.totalMain)}</span> ฿</div>
-                                <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-1"><span class="receipt-total-sub-display">${(receipt.totalSub || 0).toLocaleString()}</span> ¥</div>
-                            </div>
-                            <div class="w-6 h-6 flex items-center justify-center bg-slate-100 dark:bg-green-900/30 rounded-full text-slate-400 text-xs transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-green-100 dark:bg-green-800 text-fmGreen' : ''}">▼</div>
-                        </div>
-                    </div>
-                    ${itemsHtml}
-                </div>`;
-            }).join('');
-        }
-
-        // --- History Editor Events ---
-        let historyUpdateTimer = null;
-
-        document.getElementById('history-list').addEventListener('focusout', (e) => {
-            setTimeout(() => {
-                const activeEl = document.activeElement;
-                const isEditingHistory = activeEl && activeEl.closest('#history-list');
-                if (!isEditingHistory && viewHistory.style.display === 'block') {
-                    renderHistory();
-                }
-            }, 50);
-        });
-
-        const updateHistoryItem = (target) => {
-            const card = target.closest('.receipt-card');
-            const row = target.closest('.history-item-row');
-            if(!card || !row) return;
-            const recId = card.dataset.id;
-            const isOffline = card.dataset.offline === 'true';
-            const itemId = row.dataset.itemid;
-            const receipt = historyData.find(r => r.id === recId);
-            if (!receipt) return;
-
-            const inVal = row.querySelector('.hist-price-input').value;
-            const note = row.querySelector('.hist-note-input').value;
-            const discSlider = row.querySelector('.hist-discount-slider');
-            const disc = discSlider ? (parseFloat(discSlider.value) || 0) : 0;
-            
-            if (target.classList.contains('hist-discount-slider')) {
-                row.querySelector('.hist-discount-label').innerText = disc + '%';
-            }
-
-            const val = evaluateMath(inVal);
-            const finalPrice = val * (1 - disc / 100);
-
-            const newItems = receipt.items.map(i => i.id === itemId ? { ...i, rawVal: inVal, price: finalPrice, name: note, discount: disc } : i);
-            const newTotalBase = newItems.reduce((s, i) => s + parseFloat(i.price||0), 0);
-            
-            receipt.items = newItems; 
-            receipt.totalMain = newTotalBase; 
-            receipt.totalSub = Math.ceil(newTotalBase * currentRate);
-
-            const headerTotalMain = card.querySelector('.receipt-total-main-display');
-            if(headerTotalMain) headerTotalMain.innerText = receipt.totalMain.toLocaleString('th-TH', {maximumFractionDigits: 2});
-            const headerTotalSub = card.querySelector('.receipt-total-sub-display');
-            if(headerTotalSub) headerTotalSub.innerText = receipt.totalSub.toLocaleString();
-            
-            clearTimeout(historyUpdateTimer);
-            historyUpdateTimer = setTimeout(() => {
-                if (isOffline) {
-                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                    const idx = offRecs.findIndex(r => r.id === recId);
-                    if (idx > -1) {
-                        offRecs[idx].items = newItems;
-                        offRecs[idx].totalMain = newTotalBase;
-                        offRecs[idx].totalSub = receipt.totalSub;
-                        localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                    }
-                } else if (user && db) {
-                    updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', recId), { items: newItems, totalMain: newTotalBase, totalSub: receipt.totalSub });
-                }
-            }, 600);
-        };
-
-        document.getElementById('history-list').addEventListener('input', (e) => {
-            if (e.target.matches('.hist-price-input, .hist-note-input, .hist-discount-slider')) {
-                updateHistoryItem(e.target);
-            } 
-            else if (e.target.matches('.hist-budget-input')) {
-                const card = e.target.closest('.receipt-card');
-                if(!card) return;
-                const recId = card.dataset.id;
-                const isOffline = card.dataset.offline === 'true';
-                const receipt = historyData.find(r => r.id === recId);
-                if(!receipt) return;
-
-                const newBudget = evaluateMath(e.target.value);
-                receipt.budget = newBudget;
-                
-                const headerBudget = card.querySelector('.receipt-budget-display');
-                if(headerBudget) headerBudget.innerText = newBudget > 0 ? Number(newBudget).toLocaleString('th-TH') : '0';
-
-                clearTimeout(historyUpdateTimer);
-                historyUpdateTimer = setTimeout(() => {
-                    if (isOffline) {
-                        let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                        const idx = offRecs.findIndex(r => r.id === recId);
-                        if (idx > -1) {
-                            offRecs[idx].budget = newBudget;
-                            localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                        }
-                    } else if (user && db) {
-                        updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', recId), { budget: newBudget });
-                    }
-                }, 600);
-            }
-        });
-
-        document.getElementById('history-list').addEventListener('click', async (e) => {
-            const card = e.target.closest('.receipt-card');
-            if (!card) return;
-            const recId = card.dataset.id;
-            const isOffline = card.dataset.offline === 'true';
-            const receipt = historyData.find(r => r.id === recId);
-            if (!receipt) return;
-
-            // ตรวจจับปุ่ม พิมพ์ใบเสร็จ
-            if (e.target.closest('.view-receipt-btn')) {
-                openReceiptModal(receipt);
-                return;
-            }
-
-            if (e.target.closest('.upload-receipt-btn')) {
-                try {
-                    const btn = e.target.closest('.upload-receipt-btn');
-                    btn.innerText = 'กำลังอัปโหลด...';
-                    btn.classList.add('opacity-50');
-                    
-                    const rRef = doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', receipt.id);
-                    const cloudData = { ...receipt };
-                    delete cloudData.isOffline;
-                    
-                    await setDoc(rRef, cloudData);
-                    
-                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                    offRecs = offRecs.filter(r => r.id !== recId);
-                    localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                    
-                    showToast("☁️ อัปโหลดบิลขึ้น Cloud เรียบร้อย");
-                } catch (err) {
-                    showToast("❌ อัปโหลดไม่สำเร็จ");
-                }
-                return;
-            }
-
-            if (e.target.closest('.receipt-header')) {
-                expandedReceiptId = expandedReceiptId === recId ? null : recId;
-                renderHistory();
-            }
-            else if (e.target.closest('.hist-discount-btn')) {
-                const btn = e.target.closest('.hist-discount-btn');
-                const area = btn.closest('.history-item-row').querySelector('.hist-discount-area');
-                area.classList.toggle('hidden');
-                area.classList.toggle('flex');
-            }
-            else if (e.target.closest('.hist-del-btn')) {
-                const itemId = e.target.closest('.history-item-row').dataset.itemid;
-                const newItems = receipt.items.filter(i => i.id !== itemId);
-                const newTotalBase = newItems.reduce((s, i) => s + parseFloat(i.price||0), 0);
-                
-                receipt.items = newItems;
-                receipt.totalMain = newTotalBase;
-                receipt.totalSub = Math.ceil(newTotalBase * currentRate);
-                
-                const headerTotal = card.querySelector('.receipt-total-main-display');
-                if(headerTotal) headerTotal.innerText = receipt.totalMain.toLocaleString('th-TH', {maximumFractionDigits: 2});
-                
-                e.target.closest('.history-item-row').remove();
-                
-                if (isOffline) {
-                    let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                    const idx = offRecs.findIndex(r => r.id === recId);
-                    if (idx > -1) {
-                        offRecs[idx].items = newItems;
-                        offRecs[idx].totalMain = newTotalBase;
-                        offRecs[idx].totalSub = receipt.totalSub;
-                        localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                    }
-                } else if (user && db) {
-                    await updateDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', recId), { items: newItems, totalMain: newTotalBase, totalSub: receipt.totalSub });
-                }
-            }
-            else if (e.target.closest('.del-receipt-btn')) {
-                const btn = e.target.closest('.del-receipt-btn');
-                if (btn.dataset.confirm === 'false') {
-                    btn.dataset.confirm = 'true';
-                    btn.innerText = 'แน่ใจนะ?';
-                    btn.classList.add('bg-red-500', 'text-white');
-                    setTimeout(() => { if(btn) { btn.dataset.confirm = 'false'; btn.innerText = '🗑️ ลบทิ้งบิลนี้'; btn.classList.remove('bg-red-500', 'text-white'); } }, 2500);
-                } else {
-                    if (isOffline) {
-                        let offRecs = JSON.parse(localStorage.getItem('necomart_offline_receipts_thb') || '[]');
-                        offRecs = offRecs.filter(r => r.id !== recId);
-                        localStorage.setItem('necomart_offline_receipts_thb', JSON.stringify(offRecs));
-                        updateHistoryArray();
-                        showToast("🗑️ ลบบิลออฟไลน์เรียบร้อย");
-                    } else if (user && db) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'receipts_thb', recId));
-                        showToast("🗑️ ลบบิลเรียบร้อย");
-                    }
-                }
-            }
-        });
-
-        function updateFocusStyles() {
-            document.getElementById('inputs-wrapper').querySelectorAll('.row-container').forEach(row => {
-                const isF = row.dataset.rowId === focusedRowId;
-                row.classList.toggle('ring-2', isF); row.classList.toggle('ring-fmGreen', isF);
-                row.querySelector('.focus-btn').classList.toggle('bg-mainBrand', isF); row.querySelector('.focus-btn').classList.toggle('text-white', isF);
-            });
-            document.getElementById('wallet-title').innerText = focusedRowId ? "🎯 โฟกัสรายการเฉพาะส่วน" : "เงินเยน (¥) ที่ต้องเตรียม";
-        }
-
-        const updateBudgetUI = safeRun(() => {
-            const budgetVal = evaluateMath(document.getElementById('budget-input').value); 
-            const container = document.getElementById('budget-progress-container');
-            if (isNaN(budgetVal) || budgetVal <= 0) {
-                container.classList.add('hidden');
-                container.classList.remove('block');
-                return;
-            }
-            container.classList.remove('hidden');
-            container.classList.add('block');
-
-            const curr = document.getElementById('budget-currency').value;
-            const currentTotal = curr === 'THB' ? currentGlobalTotalBase : currentGlobalTotalConverted;
-            const symbol = curr === 'THB' ? '฿' : '¥';
-            const percent = (currentTotal / budgetVal) * 100;
-            const change = budgetVal - currentTotal;
-            
-            const pBar = document.getElementById('budget-progress');
-            pBar.style.width = `${Math.min(percent, 100)}%`;
-            pBar.className = `h-3 rounded-full transition-all duration-700 ${percent > 100 ? 'bg-red-600 animate-pulse' : percent > 80 ? 'bg-orange-500' : 'bg-emerald-400'}`;
-            document.getElementById('budget-status').innerText = percent > 100 ? `🚨 เกินงบ! (${percent.toFixed(1)}%)` : `ใช้งบไป ${percent.toFixed(1)}%`;
-            
-            const bChange = document.getElementById('budget-change');
-            bChange.innerText = `${change.toLocaleString()} ${symbol}`;
-            bChange.className = `text-lg font-black ${change >= 0 ? 'text-emerald-500' : 'text-red-500 animate-pulse'}`;
-        });
-
-        document.getElementById('budget-input').addEventListener('input', safeRun(() => { updateBudgetUI(); saveData(); }));
-        document.getElementById('budget-currency').addEventListener('change', safeRun(() => { updateBudgetUI(); saveData(); }));
-
-        // --- Active View Global Buttons ---
-        document.getElementById('add-row-btn').addEventListener('click', () => addRowUI());
-        
-        const clearAllBtn = document.getElementById('clear-all-btn');
-        let isClearConfirm = false, clearConfirmTimer = null;
-        clearAllBtn.addEventListener('click', safeRun(() => {
-            const clearBtnText = document.getElementById('clear-btn-text');
-            if (!isClearConfirm) {
-                isClearConfirm = true; clearBtnText.innerText = "แน่ใจนะ?";
-                clearAllBtn.classList.replace('bg-red-50', 'bg-red-500'); clearAllBtn.classList.replace('text-red-500', 'text-white');
-                clearConfirmTimer = setTimeout(() => { isClearConfirm = false; clearBtnText.innerText = "ล้างทั้งหมด"; clearAllBtn.classList.replace('bg-red-500', 'bg-red-50'); clearAllBtn.classList.replace('text-white', 'text-red-500'); }, 2000);
-            } else {
-                clearTimeout(clearConfirmTimer); isClearConfirm = false;
-                clearBtnText.innerText = "ล้างทั้งหมด"; clearAllBtn.classList.replace('bg-red-500', 'bg-red-50'); clearAllBtn.classList.replace('text-white', 'text-red-500');
-                focusedRowId = null; document.getElementById('inputs-wrapper').innerHTML = ''; addRowUI(); calculateTotal(); 
-                showToast("🗑️ ล้างรายการสินค้าทั้งหมดแล้ว");
-            }
-        }));
-
-        // --- Compare Tools Setup ---
-        function toggleComparePanel(forceState = null) {
-            isCompareOpen = forceState !== null ? forceState : !isCompareOpen;
-            if (isCompareOpen) { document.getElementById('compare-section').classList.add('open'); setTickboxImage(document.getElementById('compare-panel-tick'), true, 'brand'); } 
-            else { document.getElementById('compare-section').classList.remove('open'); setTickboxImage(document.getElementById('compare-panel-tick'), false, 'brand'); }
-            saveData();
-        }
-        document.getElementById('toggle-compare-btn').addEventListener('click', safeRun(() => toggleComparePanel()));
-
-        function updateAddTickedButton() {
-            const hasTicked = document.querySelectorAll('.compare-row[data-ticked="true"]').length > 0;
-            const btn = document.getElementById('add-ticked-to-cart-btn');
-            if(hasTicked) { btn.classList.remove('hidden'); } else { btn.classList.add('hidden'); }
-        }
-
-        document.getElementById('add-ticked-to-cart-btn').addEventListener('click', () => {
-            const tickedRows = document.querySelectorAll('.compare-row[data-ticked="true"]');
-            let count = 0;
-            tickedRows.forEach(row => {
-                const price = evaluateMath(row.querySelector('.comp-price').value);
-                if (price > 0) {
-                    addRowUI(price.toString(), false, '0', '', null, null, false);
-                    count++;
-                    row.dataset.ticked = 'false';
-                    setTickboxImage(row.querySelector('.comp-tick-img'), false, 'emerald');
-                }
-            });
-            updateAddTickedButton();
-            if (count > 0) {
-                showToast(`🛒 นำ ${count} รายการที่เลือกใส่ตะกร้าแล้ว!`);
-                calculateTotal();
-            }
-        });
-
-        const addCompareRow = safeRun((price = '', qty = '', ticked = false) => {
-            const row = document.createElement('div');
-            row.className = 'compare-row grid grid-cols-[auto_1fr_1fr_auto_24px] gap-1 sm:gap-2 items-center bg-white dark:bg-darkCard p-2 rounded-2xl border border-emerald-100 dark:border-emerald-900/50 transition-all';
-            row.dataset.ticked = ticked ? "true" : "false";
-            row.innerHTML = `
-                <div class="w-6 flex items-center justify-center cursor-pointer group comp-tick-btn"><span class="comp-tick-img w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110 inline-flex"></span></div>
-                <input type="text" inputmode="decimal" value="${price}" placeholder="ราคา (฿)" class="comp-price w-full bg-slate-50 dark:bg-indigo-950/30 border border-slate-200 dark:border-blue-800 rounded-lg px-2 py-1.5 text-sm font-black text-center focus:outline-none focus:border-emerald-400">
-                <input type="text" inputmode="decimal" value="${qty}" placeholder="ปริมาณ" class="comp-qty w-full bg-slate-50 dark:bg-indigo-950/30 border border-slate-200 dark:border-blue-800 rounded-lg px-2 py-1.5 text-sm font-black text-center focus:outline-none focus:border-emerald-400">
-                <div class="w-14 sm:w-16 text-right relative pr-1"><div class="comp-result text-xs font-black">-</div><div class="comp-crown absolute -top-3 -right-2 text-lg opacity-0 pointer-events-none">👑</div></div>
-                <button class="comp-del-btn w-6 h-6 flex items-center justify-center rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">✕</button>
-            `;
-            const pIn = row.querySelector('.comp-price'), qIn = row.querySelector('.comp-qty'), tBtn = row.querySelector('.comp-tick-btn'), delBtn = row.querySelector('.comp-del-btn');
-            
-            pIn.addEventListener('input', () => { calculateCompare(); saveData(); }); 
-            qIn.addEventListener('input', () => { calculateCompare(); saveData(); });
-
-            pIn.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    qIn.focus();
-                }
-            });
-
-            qIn.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const allQ = Array.from(document.querySelectorAll('.comp-qty'));
-                    const allP = Array.from(document.querySelectorAll('.comp-price'));
-                    const idx = allQ.indexOf(qIn);
-                    
-                    if (idx < allQ.length - 1) {
-                        allP[idx + 1].focus();
-                    } else {
-                        if (qIn.value !== '') {
-                            addCompareRow();
-                            const newAllP = document.querySelectorAll('.comp-price');
-                            newAllP[newAllP.length - 1].focus();
-                        }
-                    }
-                }
-            });
-
-            tBtn.addEventListener('click', () => { 
-                const isT = row.dataset.ticked === 'true'; 
-                row.dataset.ticked = !isT; 
-                setTickboxImage(row.querySelector('.comp-tick-img'), !isT, 'emerald'); 
-                updateAddTickedButton();
-                saveData(); 
-            });
-            
-            delBtn.addEventListener('click', safeRun(() => { 
-                if (document.querySelectorAll('.compare-row').length > 1) { 
-                    row.remove(); 
-                } else { 
-                    pIn.value = qIn.value = ''; 
-                    row.dataset.ticked = 'false'; 
-                    setTickboxImage(row.querySelector('.comp-tick-img'), false, 'emerald'); 
-                }
-                calculateCompare(); 
-                updateAddTickedButton();
-                saveData(); 
-            }));
-            
-            document.getElementById('compare-list').appendChild(row);
-            setTickboxImage(row.querySelector('.comp-tick-img'), ticked, 'emerald');
-            saveData();
-        });
-        document.getElementById('add-compare-row-btn').addEventListener('click', safeRun(() => addCompareRow()));
-        
-        const calculateCompare = safeRun(() => {
-            const rows = document.querySelectorAll('.compare-row'); let minU = Infinity, bests = [];
-            rows.forEach(row => {
-                const p = evaluateMath(row.querySelector('.comp-price').value), q = evaluateMath(row.querySelector('.comp-qty').value), res = row.querySelector('.comp-result');
-                row.classList.remove('best-value'); row.querySelector('.comp-crown').classList.remove('opacity-100');
-                if (p > 0 && q > 0) { const u = p / q; res.innerText = (u < 1 ? u.toFixed(2) : u.toFixed(1)) + " ฿/u"; if (u < minU) { minU = u; bests = [row]; } else if (u === minU) bests.push(row); } else res.innerText = "-";
-            });
-            if (minU !== Infinity) bests.forEach(r => { r.classList.add('best-value'); r.querySelector('.comp-crown').classList.add('opacity-100'); });
-        });
-
-        // Fire init
-        initApp();
-    </script>
+        <div class="flex gap-2">
+          <button onclick="loadSession('${s.id}',event)" class="flex-1 text-[11px] font-black text-brand dark:text-green-300 py-1.5 border border-dashed border-brand/30 dark:border-green-700/40 rounded-xl hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors">📂 โหลดมาแก้ต่อ</button>
+          ${!isOnline ? `<button onclick="uploadSession('${s.id}',event)" class="text-[11px] font-black text-orange-500 dark:text-orange-400 py-1.5 px-3 border border-dashed border-orange-300 dark:border-orange-700/40 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors">☁️ อัปโหลด</button>` : ''}
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  const modal = document.getElementById('history-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => { modal.style.opacity = '1'; }, 10);
+}
+
+function closeHistoryModal() {
+  const modal = document.getElementById('history-modal');
+  modal.style.opacity = '0';
+  setTimeout(() => { modal.style.display = 'none'; }, 300);
+}
+
+function loadSession(id, e) {
+  if(e) e.stopPropagation();
+  const s = sessions.find(s => s.id === id);
+  if (!s) return;
+  members = JSON.parse(JSON.stringify(s.members));
+  items = JSON.parse(JSON.stringify(s.items));
+  renderMembers(); renderItems(); calculate(); saveDraft();
+  closeHistoryModal();
+  showToast('📂 โหลดรอบนั้นแล้ว!');
+}
+
+function deleteSession(id, e) {
+  if(e) e.stopPropagation();
+  sessions = sessions.filter(s => s.id !== id);
+  localStorage.setItem('necoPay_sessions', JSON.stringify(sessions));
+  if (window.saveToCloud) window.saveToCloud(sessions);
+  openHistoryModal();
+  showToast('🗑️ ลบแล้ว');
+}
+
+// ========== CLICK OUTSIDE MODALS ==========
+document.getElementById('receipt-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeReceiptModal();
+});
+document.getElementById('history-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeHistoryModal();
+});
+
+// ========== START ==========
+init();
+</script>
 </body>
 </html>
