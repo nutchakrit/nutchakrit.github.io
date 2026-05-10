@@ -720,13 +720,28 @@ function openReceipt(sessionData) {
   _members.forEach((m,i) => {
     const isPaid = !!_paid[m.id];
     const div = document.createElement('div');
-    div.className = 'flex justify-between font-bold items-start gap-2';
-    div.innerHTML = `
-      <span style="color:${colorOf(i)};${isPaid?'text-decoration:line-through;opacity:.5':''}">${m.name}</span>
-      <span style="display:flex;align-items:center;gap:6px">
-        <span style="${isPaid?'text-decoration:line-through;opacity:.5':''}">${fmt(_totals[m.id]||0)} ฿</span>
-        <span style="font-size:10px">${isPaid?'✅':'⬜'}</span>
-      </span>`;
+    div.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-weight:700;margin-bottom:2px';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = m.name;
+    nameSpan.style.color = colorOf(i);
+    if (isPaid) { nameSpan.style.textDecoration = 'line-through'; nameSpan.style.opacity = '0.5'; }
+
+    const rightSpan = document.createElement('span');
+    rightSpan.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
+
+    const amtSpan = document.createElement('span');
+    amtSpan.textContent = fmt(_totals[m.id]||0) + ' ฿';
+    if (isPaid) { amtSpan.style.textDecoration = 'line-through'; amtSpan.style.opacity = '0.5'; }
+
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = isPaid ? '✅' : '⬜';
+    iconSpan.style.fontSize = '10px';
+
+    rightSpan.appendChild(amtSpan);
+    rightSpan.appendChild(iconSpan);
+    div.appendChild(nameSpan);
+    div.appendChild(rightSpan);
     rMembers.appendChild(div);
   });
   const totalRow = document.createElement('div');
