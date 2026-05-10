@@ -422,8 +422,6 @@ function addMember() {
   if (members.length >= 20) { showToast('⚠️ รองรับสูงสุด 20 คน'); return; }
   const m = { id: uid(), name: 'คน ' + String.fromCharCode(65 + (members.length % 26)) };
   members.push(m);
-  // Add new member to all items by default
-  items.forEach(it => it.memberIds.push(m.id));
   renderMembers(); renderItems(); calculate(); saveDraft();
   showToast('✅ เพิ่มคนแล้ว!');
 }
