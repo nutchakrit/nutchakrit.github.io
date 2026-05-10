@@ -723,7 +723,7 @@ function openReceipt(sessionData) {
   _members.forEach((m,i) => {
     const isPaid = !!_paid[m.id];
     const div = document.createElement('div');
-    div.className = 'flex justify-between font-bold items-center';
+    div.className = 'flex justify-between font-bold items-start gap-2';
     div.innerHTML = `
       <span style="color:${colorOf(i)}" class="${isPaid?'line-through opacity-50':''}">${m.name}</span>
       <span class="flex items-center gap-1.5">
