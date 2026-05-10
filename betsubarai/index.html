@@ -329,7 +329,11 @@ let paidStatus = {}; // { memberId: true/false }
 let sessions = JSON.parse(localStorage.getItem('necoPay_sessions') || '[]');
 window._localSessions = sessions;
 
-const COLORS = ['#6366f1','#f59e0b','#ec4899','#10b981','#3b82f6','#f97316','#8b5cf6','#14b8a6'];
+const COLORS = [
+  '#6366f1','#f59e0b','#ec4899','#10b981','#3b82f6','#f97316','#8b5cf6','#14b8a6',
+  '#e11d48','#84cc16','#06b6d4','#a855f7','#f43f5e','#22c55e','#0ea5e9','#d946ef',
+  '#fb923c','#4ade80','#818cf8','#2dd4bf'
+];
 
 // ========== INIT ==========
 function init() {
@@ -415,8 +419,8 @@ function renderMembers() {
 }
 
 function addMember() {
-  if (members.length >= 8) { showToast('⚠️ รองรับสูงสุด 8 คน'); return; }
-  const m = { id: uid(), name: 'คน ' + String.fromCharCode(65 + members.length) };
+  if (members.length >= 20) { showToast('⚠️ รองรับสูงสุด 20 คน'); return; }
+  const m = { id: uid(), name: 'คน ' + String.fromCharCode(65 + (members.length % 26)) };
   members.push(m);
   // Add new member to all items by default
   items.forEach(it => it.memberIds.push(m.id));
