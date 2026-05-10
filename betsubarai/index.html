@@ -723,16 +723,27 @@ function openReceipt(sessionData) {
     div.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-weight:700;margin-bottom:2px';
 
     const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = `color:${colorOf(i)};position:relative;display:inline-block`;
     nameSpan.textContent = m.name;
-    nameSpan.style.color = colorOf(i);
-    if (isPaid) { nameSpan.style.textDecoration = 'line-through'; nameSpan.style.opacity = '0.5'; }
+    if (isPaid) {
+      nameSpan.style.opacity = '0.5';
+      const line = document.createElement('span');
+      line.style.cssText = 'position:absolute;left:0;right:0;top:50%;height:1.5px;background:currentColor;display:block';
+      nameSpan.appendChild(line);
+    }
 
     const rightSpan = document.createElement('span');
     rightSpan.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0';
 
     const amtSpan = document.createElement('span');
+    amtSpan.style.cssText = 'position:relative;display:inline-block';
     amtSpan.textContent = fmt(_totals[m.id]||0) + ' ฿';
-    if (isPaid) { amtSpan.style.textDecoration = 'line-through'; amtSpan.style.opacity = '0.5'; }
+    if (isPaid) {
+      amtSpan.style.opacity = '0.5';
+      const line = document.createElement('span');
+      line.style.cssText = 'position:absolute;left:0;right:0;top:50%;height:1.5px;background:#000;display:block';
+      amtSpan.appendChild(line);
+    }
 
     const iconSpan = document.createElement('span');
     iconSpan.textContent = isPaid ? '✅' : '⬜';
@@ -763,7 +774,22 @@ function closeReceiptModal() {
 document.getElementById('dl-btn').addEventListener('click', async () => {
   const area = document.getElementById('receipt-area');
   try {
-    const canvas = await html2canvas(area, { scale: 3, backgroundColor: '#ffffff', useCORS: true });
+    // รอ font + layout render ให้เสร็จก่อน
+    await document.fonts.ready;
+    await new Promise(r => setTimeout(r, 300));
+    const canvas = await html2canvas(area, {
+      scale: 3,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false,
+      onclone: (clonedDoc) => {
+        // ใน cloned doc บังคับ style ให้ครบอีกรอบ
+        clonedDoc.querySelectorAll('[data-strikethrough]').forEach(el => {
+          el.style.textDecoration = 'line-through';
+          el.style.opacity = '0.5';
+        });
+      }
+    });
     const link = document.createElement('a');
     link.download = 'necopay-receipt-' + Date.now() + '.png';
     link.href = canvas.toDataURL('image/png');
