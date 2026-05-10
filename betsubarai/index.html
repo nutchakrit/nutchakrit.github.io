@@ -445,78 +445,77 @@ function renameMember(id, name) {
 }
 
 // ========== ITEMS ==========
+function buildItemRow(it, animate = false) {
+  const row = document.createElement('div');
+  row.id = 'item-row-' + it.id;
+  row.className = 'item-row bg-slate-50 dark:bg-blue-950/20 rounded-2xl border border-slate-200 dark:border-blue-900/40 p-3 space-y-2' + (animate ? ' animate-pop' : '');
+
+  const chipsHtml = members.map((m, mi) => {
+    const active = it.memberIds.includes(m.id);
+    return `<button type="button" onclick="toggleMemberOnItem('${it.id}','${m.id}')"
+      class="member-chip ${active ? 'active' : 'inactive'} chip-item-${it.id}"
+      style="${active ? 'background:' + colorOf(mi) + ';border-color:' + colorOf(mi) : 'border-color:' + colorOf(mi)};color:${active ? '#fff' : colorOf(mi)}"
+      data-mid="${m.id}">
+      <span class="chip-name-${m.id}">${m.name || '?'}</span>
+    </button>`;
+  }).join('');
+
+  row.innerHTML = `
+    <div class="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
+      <input type="text" value="${it.name}" placeholder="ชื่อรายการ (เช่น ข้าว, แอร์)" maxlength="30"
+        class="bg-transparent font-bold text-sm focus:outline-none text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 min-w-0 item-name-input"
+        data-item-id="${it.id}"
+        oninput="updateItemName('${it.id}',this.value)">
+      <div class="relative flex items-center">
+        <span class="absolute left-2 text-slate-400 dark:text-slate-500 text-xs font-bold">฿</span>
+        <input type="text" inputmode="decimal" value="${it.price}" placeholder="0.00 หรือ 50+30"
+          class="w-full bg-white dark:bg-darkCard border border-slate-200 dark:border-blue-800 rounded-xl pl-5 pr-2 py-1.5 font-black text-sm text-right focus:outline-none focus:border-brand dark:focus:border-green-400 hide-arrows item-price-input"
+          data-item-id="${it.id}"
+          oninput="updateItemPrice('${it.id}',this.value)">
+        <div class="math-preview" id="math-preview-${it.id}" style="opacity:0;position:absolute;top:-28px;right:0"></div>
+      </div>
+      <button onclick="removeItem('${it.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-bold">✕</button>
+    </div>
+    <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+      <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 self-center mr-1">หาร:</span>
+      ${chipsHtml}
+      <button onclick="toggleAllOnItem('${it.id}')" class="text-[10px] font-bold text-slate-400 hover:text-brand dark:hover:text-green-300 px-2 py-0.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 transition-colors">All</button>
+    </div>
+  `;
+
+  // Enter key navigation
+  const nameInput  = row.querySelector('.item-name-input');
+  const priceInput = row.querySelector('.item-price-input');
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); priceInput.focus(); priceInput.select(); }
+  });
+  priceInput.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const allPrices = [...document.querySelectorAll('.item-price-input')];
+    const idx = allPrices.indexOf(priceInput);
+    if (idx < allPrices.length - 1) {
+      document.querySelectorAll('.item-name-input')[idx + 1]?.focus();
+    } else {
+      addItem();
+    }
+  });
+
+  return row;
+}
+
 function renderItems() {
   const area = document.getElementById('items-area');
   area.innerHTML = '';
-  items.forEach((it, idx) => {
-    const row = document.createElement('div');
-    row.className = 'item-row bg-slate-50 dark:bg-blue-950/20 rounded-2xl border border-slate-200 dark:border-blue-900/40 p-3 space-y-2 animate-pop';
-    row.style.animationDelay = (idx * 0.04) + 's';
-
-    const chipsHtml = members.map((m, mi) => {
-      const active = it.memberIds.includes(m.id);
-      return `<button type="button" onclick="toggleMemberOnItem('${it.id}','${m.id}')" 
-        class="member-chip ${active ? 'active' : 'inactive'} chip-item-${it.id}" 
-        style="${active ? 'background:' + colorOf(mi) + ';border-color:' + colorOf(mi) : 'border-color:' + colorOf(mi)};color:${active ? '#fff' : colorOf(mi)}" 
-        data-mid="${m.id}">
-        <span class="chip-name-${m.id}">${m.name || '?'}</span>
-      </button>`;
-    }).join('');
-
-    row.innerHTML = `
-      <div class="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
-        <input type="text" value="${it.name}" placeholder="ชื่อรายการ (เช่น ข้าว, แอร์)" maxlength="30"
-          class="bg-transparent font-bold text-sm focus:outline-none text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 min-w-0 item-name-input"
-          data-item-id="${it.id}"
-          oninput="updateItemName('${it.id}',this.value)">
-        <div class="relative flex items-center">
-          <span class="absolute left-2 text-slate-400 dark:text-slate-500 text-xs font-bold">฿</span>
-          <input type="text" inputmode="decimal" value="${it.price}" placeholder="0.00 หรือ 50+30"
-            class="w-full bg-white dark:bg-darkCard border border-slate-200 dark:border-blue-800 rounded-xl pl-5 pr-2 py-1.5 font-black text-sm text-right focus:outline-none focus:border-brand dark:focus:border-green-400 hide-arrows item-price-input"
-            data-item-id="${it.id}"
-            oninput="updateItemPrice('${it.id}',this.value)">
-          <div class="math-preview" id="math-preview-${it.id}" style="opacity:0;position:absolute;top:-28px;right:0"></div>
-        </div>
-        <button onclick="removeItem('${it.id}')" class="w-8 h-8 flex items-center justify-center rounded-full text-slate-300 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-bold">✕</button>
-      </div>
-      <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-        <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 self-center mr-1">หาร:</span>
-        ${chipsHtml}
-        <button onclick="toggleAllOnItem('${it.id}')" class="text-[10px] font-bold text-slate-400 hover:text-brand dark:hover:text-green-300 px-2 py-0.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 transition-colors">All</button>
-      </div>
-    `;
-    area.appendChild(row);
-
-    // ── Enter key navigation ──
-    const nameInput  = row.querySelector('.item-name-input');
-    const priceInput = row.querySelector('.item-price-input');
-
-    nameInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); priceInput.focus(); priceInput.select(); }
-    });
-
-    priceInput.addEventListener('keydown', e => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const allPrices = [...document.querySelectorAll('.item-price-input')];
-      const idx = allPrices.indexOf(priceInput);
-      if (idx < allPrices.length - 1) {
-        // Go to next row's name input
-        const nextName = document.querySelectorAll('.item-name-input')[idx + 1];
-        if (nextName) { nextName.focus(); nextName.select(); }
-      } else {
-        // Last row → add new item and focus it
-        addItem();
-      }
-    });
-  });
+  items.forEach(it => area.appendChild(buildItemRow(it, false)));
 }
 
 function addItem() {
   const it = { id: uid(), name: '', price: '', memberIds: [] };
   items.push(it);
-  renderItems(); calculate(); saveDraft();
-  // Focus the name input of the last (new) row
+  // append แค่ row ใหม่ — animate เฉพาะตัวนี้
+  document.getElementById('items-area').appendChild(buildItemRow(it, true));
+  calculate(); saveDraft();
   setTimeout(() => {
     const nameInputs = document.querySelectorAll('.item-name-input');
     if (nameInputs.length) nameInputs[nameInputs.length - 1].focus();
