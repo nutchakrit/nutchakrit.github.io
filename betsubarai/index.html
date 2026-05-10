@@ -482,7 +482,7 @@ function renderItems() {
       <div class="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
         <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 self-center mr-1">หาร:</span>
         ${chipsHtml}
-        <button onclick="toggleAllOnItem('${it.id}')" class="text-[10px] font-bold text-slate-400 hover:text-brand dark:hover:text-green-300 px-2 py-0.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 transition-colors">ทั้งหมด</button>
+        <button onclick="toggleAllOnItem('${it.id}')" class="text-[10px] font-bold text-slate-400 hover:text-brand dark:hover:text-green-300 px-2 py-0.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 transition-colors">All</button>
       </div>
     `;
     area.appendChild(row);
@@ -513,7 +513,7 @@ function renderItems() {
 }
 
 function addItem() {
-  const it = { id: uid(), name: '', price: '', memberIds: members.map(m => m.id) };
+  const it = { id: uid(), name: '', price: '', memberIds: [] };
   items.push(it);
   renderItems(); calculate(); saveDraft();
   // Focus the name input of the last (new) row
@@ -560,7 +560,6 @@ function toggleMemberOnItem(itemId, memberId) {
   if (!it) return;
   const has = it.memberIds.includes(memberId);
   if (has) {
-    if (it.memberIds.length <= 1) { showToast('⚠️ ต้องมีผู้หารอย่างน้อย 1 คน'); return; }
     it.memberIds = it.memberIds.filter(mid => mid !== memberId);
   } else {
     it.memberIds.push(memberId);
@@ -580,7 +579,8 @@ function toggleMemberOnItem(itemId, memberId) {
 function toggleAllOnItem(itemId) {
   const it = items.find(i => i.id === itemId);
   if (!it) return;
-  it.memberIds = members.map(m => m.id);
+  const allSelected = members.every(m => it.memberIds.includes(m.id));
+  it.memberIds = allSelected ? [] : members.map(m => m.id);
   renderItems(); calculate(); saveDraft();
 }
 
