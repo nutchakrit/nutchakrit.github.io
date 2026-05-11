@@ -397,6 +397,7 @@
         
         let auth, db, user = null;
         let isInitialLoad = true;
+        let newlyAddedPocketId = null; // เช็คว่าอันไหนเพิ่มใหม่เพื่อทำ animation
         let jpyToThbRate = 0;
         let activeSessionUnsubscribe = null;
 
@@ -717,85 +718,154 @@
             updateSummaryDisplay();
 
             const container = document.getElementById('pockets-container');
-            container.innerHTML = '';
 
+            // 1. จัดการกรณีที่ยังไม่มีกระเป๋า (Empty State)
             if (appData.pockets.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 dark:text-slate-500 font-bold">ยังไม่มีกระเป๋าเงิน กดสร้างด้านล่างได้เลย!</div>`;
+                container.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 dark:text-slate-500 font-bold empty-state">ยังไม่มีกระเป๋าเงิน กดสร้างด้านล่างได้เลย!</div>`;
                 return;
+            } else {
+                const emptyState = container.querySelector('.empty-state');
+                if (emptyState) emptyState.remove();
             }
 
+            // 2. ลบกระเป๋าที่ไม่มีใน Data แล้ว
+            const currentIds = appData.pockets.map(p => p.id.toString());
+            Array.from(container.children).forEach(child => {
+                if (child.dataset.id && !currentIds.includes(child.dataset.id)) {
+                    child.remove();
+                }
+            });
+
+            // 3. อัพเดทของเดิม หรือสร้างกระเป๋าใบใหม่
             appData.pockets.forEach((pocket, index) => {
+                let card = container.querySelector(`div[data-id="${pocket.id}"]`);
                 const jpyVal = convertThbToJpy(pocket.balance);
                 const percent = appData.totalBudget > 0 ? (pocket.balance / appData.totalBudget) * 100 : 0;
 
-                const card = document.createElement('div');
-                card.className = 'glass-card rounded-3xl p-5 animate-pop relative overflow-hidden group border border-slate-200 dark:border-slate-700 draggable-card';
-                card.style.animationDelay = `${index * 0.05}s`;
-                
-                card.draggable = true;
-                card.ondragstart = (e) => handleDragStart(e, pocket.id);
-                card.ondragend = handleDragEnd;
-                card.ondragover = handleDragOver;
-                card.ondragenter = handleDragEnter;
-                card.ondragleave = handleDragLeave;
-                card.ondrop = (e) => handleDrop(e, pocket.id);
+                if (card) {
+                    // => มีการ์ดนี้อยู่แล้ว: อัพเดทแค่ข้อมูลข้างใน (ไม่กระเพื่อม)
+                    const progressBar = card.querySelector('.progress-bar');
+                    if (progressBar) progressBar.style.width = `${Math.min(percent, 100)}%`;
+                    
+                    const iconEl = card.querySelector('.pocket-icon');
+                    if (iconEl && iconEl.innerText !== (pocket.icon || '☁️')) {
+                        iconEl.innerText = pocket.icon || '☁️';
+                    }
+                    
+                    const nameInput = card.querySelector('.pocket-name-input');
+                    if (nameInput && document.activeElement !== nameInput) {
+                        nameInput.value = pocket.name;
+                    }
+                    
+                    const percentText = card.querySelector('.pocket-percent-text');
+                    if (percentText) {
+                        percentText.innerText = `แบ่งงบ ${percent.toFixed(1)}%`;
+                    }
+                    
+                    const balanceInput = card.querySelector('.pocket-balance-input');
+                    if (balanceInput && document.activeElement !== balanceInput) {
+                        balanceInput.value = pocket.balance;
+                    }
+                    
+                    const jpyText = card.querySelector('.pocket-jpy-text');
+                    if (jpyText) {
+                        jpyText.innerText = `≈ ¥${formatNum(jpyVal)}`;
+                    }
 
-                card.innerHTML = `
-                    <div class="absolute bottom-0 left-0 h-1.5 bg-indigo-100 dark:bg-slate-800 w-full pointer-events-none">
-                        <div class="h-full bg-primary transition-all duration-1000 ease-out" style="width: ${Math.min(percent, 100)}%"></div>
-                    </div>
+                } else {
+                    // => ยังไม่มีการ์ดนี้ (สร้างใหม่)
+                    card = document.createElement('div');
+                    card.dataset.id = pocket.id;
+                    
+                    // เพิ่ม Animation Class เฉพาะตอน Initial Load หรืออันที่เพิ่งสร้างใหม่ล่าสุด
+                    let animClass = (newlyAddedPocketId === pocket.id || isInitialLoad) ? 'animate-pop' : '';
+                    
+                    card.className = `glass-card rounded-3xl p-5 ${animClass} relative overflow-hidden group border border-slate-200 dark:border-slate-700 draggable-card`;
+                    if (isInitialLoad) {
+                        card.style.animationDelay = `${index * 0.05}s`;
+                    }
+                    
+                    card.draggable = true;
+                    card.ondragstart = (e) => handleDragStart(e, pocket.id);
+                    card.ondragend = handleDragEnd;
+                    card.ondragover = handleDragOver;
+                    card.ondragenter = handleDragEnter;
+                    card.ondragleave = handleDragLeave;
+                    card.ondrop = (e) => handleDrop(e, pocket.id);
 
-                    <div class="flex justify-between items-start mb-4 relative z-10">
-                        <div class="flex items-center gap-3 w-full pr-2">
-                            <div onclick="openIconPicker(${pocket.id})" 
-                                 class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-2xl border border-slate-100 dark:border-slate-700 hover:border-primary transition-colors shrink-0 cursor-pointer" 
-                                 title="แตะเพื่อเปลี่ยนไอคอน">
-                                ${pocket.icon || '☁️'}
+                    card.innerHTML = `
+                        <div class="absolute bottom-0 left-0 h-1.5 bg-indigo-100 dark:bg-slate-800 w-full pointer-events-none">
+                            <div class="progress-bar bg-primary transition-all duration-1000 ease-out h-full" style="width: ${Math.min(percent, 100)}%"></div>
+                        </div>
+
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div class="flex items-center gap-3 w-full pr-2">
+                                <div onclick="openIconPicker(${pocket.id})" 
+                                     class="pocket-icon w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-2xl border border-slate-100 dark:border-slate-700 hover:border-primary transition-colors shrink-0 cursor-pointer" 
+                                     title="แตะเพื่อเปลี่ยนไอคอน">${pocket.icon || '☁️'}</div>
+                                
+                                <div class="flex-grow min-w-0">
+                                    <input type="text" value="${pocket.name}" 
+                                           onblur="updatePocketName(${pocket.id}, this.value)"
+                                           onkeydown="if(event.key==='Enter') this.blur();"
+                                           class="pocket-name-input w-full bg-transparent font-bold text-slate-800 dark:text-white text-lg leading-tight outline-none border-b border-transparent focus:border-primary dark:focus:border-indigo-400 transition-colors truncate"
+                                           placeholder="ชื่อกระเป๋า"
+                                           title="แตะเพื่อแก้ไขชื่อกระเป๋า">
+                                    <div class="pocket-percent-text text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">แบ่งงบ ${percent.toFixed(1)}%</div>
+                                </div>
                             </div>
                             
-                            <div class="flex-grow min-w-0">
-                                <input type="text" value="${pocket.name}" 
-                                       onblur="updatePocketName(${pocket.id}, this.value)"
-                                       onkeydown="if(event.key==='Enter') this.blur();"
-                                       class="w-full bg-transparent font-bold text-slate-800 dark:text-white text-lg leading-tight outline-none border-b border-transparent focus:border-primary dark:focus:border-indigo-400 transition-colors truncate"
-                                       placeholder="ชื่อกระเป๋า"
-                                       title="แตะเพื่อแก้ไขชื่อกระเป๋า">
-                                <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">แบ่งงบ ${percent.toFixed(1)}%</div>
+                            <button onclick="deletePocket(${pocket.id})" class="text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0" title="ลบกระเป๋าใบนี้">
+                                🗑️
+                            </button>
+                        </div>
+
+                        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl flex flex-col border border-slate-200 dark:border-slate-700 mt-2 relative z-10 focus-within:border-primary dark:focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/50 transition-all shadow-inner">
+                            <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-widest pointer-events-none">ยอดเงินในกระเป๋า</div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl font-bold text-slate-400 dark:text-slate-500 pointer-events-none">฿</span>
+                                <input type="number" id="pocket-balance-${pocket.id}" value="${pocket.balance}" 
+                                    class="pocket-balance-input hide-arrows w-full bg-transparent text-3xl font-black text-slate-800 dark:text-white outline-none"
+                                    onblur="updatePocketBalance(${pocket.id}, this.value)"
+                                    onkeydown="if(event.key==='Enter') this.blur();"
+                                    onfocus="this.select()">
+                            </div>
+                            <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/50 pointer-events-none">
+                                <span class="pocket-jpy-text text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50">
+                                    ≈ ¥${formatNum(jpyVal)}
+                                </span>
                             </div>
                         </div>
-                        
-                        <button onclick="deletePocket(${pocket.id})" class="text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 w-8 h-8 rounded-full flex items-center justify-center transition-colors shrink-0" title="ลบกระเป๋าใบนี้">
-                            🗑️
-                        </button>
-                    </div>
-
-                    <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl flex flex-col border border-slate-200 dark:border-slate-700 mt-2 relative z-10 focus-within:border-primary dark:focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100 dark:focus-within:ring-indigo-900/50 transition-all shadow-inner">
-                        <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1 uppercase tracking-widest pointer-events-none">ยอดเงินในกระเป๋า</div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-2xl font-bold text-slate-400 dark:text-slate-500 pointer-events-none">฿</span>
-                            <input type="number" id="pocket-balance-${pocket.id}" value="${pocket.balance}" 
-                                class="hide-arrows w-full bg-transparent text-3xl font-black text-slate-800 dark:text-white outline-none"
-                                onblur="updatePocketBalance(${pocket.id}, this.value)"
-                                onkeydown="if(event.key==='Enter') this.blur();"
-                                onfocus="this.select()">
-                        </div>
-                        <div class="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/50 pointer-events-none">
-                            <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded border border-emerald-100 dark:border-emerald-800/50">
-                                ≈ ¥${formatNum(jpyVal)}
-                            </span>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(card);
+                    `;
+                    container.appendChild(card);
+                }
             });
+
+            // คืนค่า Reset กลับหลังจาก Render เสร็จ
+            newlyAddedPocketId = null;
         }
 
         // --- Pocket Actions ---
         window.addNewPocketInstant = function() {
             const newId = appData.pockets.length > 0 ? Math.max(...appData.pockets.map(p => p.id)) + 1 : 1;
             appData.pockets.push({ id: newId, name: "กระเป๋าใหม่", icon: "☁️", balance: 0 });
+            
+            newlyAddedPocketId = newId; // เพื่อให้มันเล่น Animation เฉพาะตัวนี้
             saveData();
             showToast('สร้างกระเป๋าใหม่แล้ว พิมพ์แก้ชื่อได้เลย!');
+            
+            // Auto Scroll และเลือกช่องชื่อให้พิมพ์ได้ทันที
+            setTimeout(() => {
+                const newCard = document.querySelector(`div[data-id="${newId}"]`);
+                if (newCard) {
+                    newCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const nameInput = newCard.querySelector('.pocket-name-input');
+                    if (nameInput) {
+                        nameInput.focus();
+                        nameInput.select();
+                    }
+                }
+            }, 50);
         };
 
         window.updatePocketName = function(id, newName) {
