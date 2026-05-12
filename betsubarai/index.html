@@ -332,6 +332,17 @@ const COLORS = [
   '#fb923c','#4ade80','#818cf8','#2dd4bf'
 ];
 
+// ========== MIGRATE: memberIds → memberQty ==========
+function migrateItem(it) {
+  if (!it.memberQty) {
+    it.memberQty = {};
+    (it.memberIds || []).forEach(mid => { it.memberQty[mid] = 1; });
+  }
+  // keep memberIds in sync for backwards compat with history/receipt readers
+  it.memberIds = Object.keys(it.memberQty).filter(mid => it.memberQty[mid] > 0);
+  return it;
+}
+
 // ========== INIT ==========
 function init() {
   // Load theme
@@ -344,12 +355,14 @@ function init() {
   const draft = JSON.parse(localStorage.getItem('necoPay_draft') || 'null');
   if (draft) {
     members = draft.members || [];
-    items = draft.items || [];
+    items = (draft.items || []).map(migrateItem);
     paidStatus = draft.paidStatus || {};
   } else {
     // Default members
     members = [{ id: uid(), name: 'คน A' }, { id: uid(), name: 'คน B' }];
-    items = [{ id: uid(), name: '', price: '', memberIds: members.map(m => m.id) }];
+    const defaultMemberQty = {};
+    members.forEach(m => { defaultMemberQty[m.id] = 1; });
+    items = [{ id: uid(), name: '', price: '', memberQty: defaultMemberQty, memberIds: members.map(m => m.id) }];
     paidStatus = {};
   }
 
@@ -426,7 +439,10 @@ function addMember() {
 function removeMember(id) {
   if (members.length <= 1) { showToast('❌ ต้องมีอย่างน้อย 1 คน'); return; }
   members = members.filter(m => m.id !== id);
-  items.forEach(it => { it.memberIds = it.memberIds.filter(mid => mid !== id); });
+  items.forEach(it => {
+    delete it.memberQty[id];
+    it.memberIds = Object.keys(it.memberQty).filter(mid => it.memberQty[mid] > 0);
+  });
   renderMembers(); renderItems(); calculate(); saveDraft();
 }
 
@@ -441,17 +457,19 @@ function renameMember(id, name) {
 
 // ========== ITEMS ==========
 function buildItemRow(it, animate = false) {
+  migrateItem(it); // ensure memberQty exists
   const row = document.createElement('div');
   row.id = 'item-row-' + it.id;
   row.className = 'item-row bg-slate-50 dark:bg-blue-950/20 rounded-2xl border border-slate-200 dark:border-blue-900/40 p-3 space-y-2' + (animate ? ' animate-pop' : '');
 
   const chipsHtml = members.map((m, mi) => {
-    const active = it.memberIds.includes(m.id);
-    return `<button type="button" onclick="toggleMemberOnItem('${it.id}','${m.id}')"
+    const qty = it.memberQty[m.id] || 0;
+    const active = qty > 0;
+    return `<button type="button" onclick="cycleQtyOnItem('${it.id}','${m.id}')"
       class="member-chip ${active ? 'active' : 'inactive'} chip-item-${it.id}"
       style="${active ? 'background:' + colorOf(mi) + ';border-color:' + colorOf(mi) : 'border-color:' + colorOf(mi)};color:${active ? '#fff' : colorOf(mi)}"
       data-mid="${m.id}">
-      <span class="chip-name-${m.id}">${m.name || '?'}</span>
+      <span class="chip-name-${m.id}">${m.name || '?'}</span>${active && qty > 1 ? `<span class="chip-qty-${it.id}-${m.id}" style="font-size:10px;background:rgba(0,0,0,0.25);border-radius:999px;padding:0 4px;margin-left:1px">×${qty}</span>` : `<span class="chip-qty-${it.id}-${m.id}"></span>`}
     </button>`;
   }).join('');
 
@@ -476,6 +494,7 @@ function buildItemRow(it, animate = false) {
       ${chipsHtml}
       <button onclick="toggleAllOnItem('${it.id}')" class="text-[10px] font-bold text-slate-400 hover:text-brand dark:hover:text-green-300 px-2 py-0.5 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 transition-colors">All</button>
     </div>
+    <div class="text-[9px] text-slate-400 dark:text-slate-500 pl-1">แตะชื่อ = เพิ่มจำนวน · แตะค้าง = รีเซ็ต</div>
   `;
 
   // Enter key navigation
@@ -496,6 +515,22 @@ function buildItemRow(it, animate = false) {
     }
   });
 
+  // Long press = reset qty to 0 for that member
+  row.querySelectorAll('.chip-item-' + it.id).forEach(btn => {
+    let timer;
+    btn.addEventListener('pointerdown', () => {
+      timer = setTimeout(() => {
+        const mid = btn.getAttribute('data-mid');
+        it.memberQty[mid] = 0;
+        it.memberIds = Object.keys(it.memberQty).filter(m => it.memberQty[m] > 0);
+        renderItems(); calculate(); saveDraft();
+        showToast('🔄 รีเซ็ตแล้ว');
+      }, 600);
+    });
+    btn.addEventListener('pointerup', () => clearTimeout(timer));
+    btn.addEventListener('pointerleave', () => clearTimeout(timer));
+  });
+
   return row;
 }
 
@@ -506,7 +541,7 @@ function renderItems() {
 }
 
 function addItem() {
-  const it = { id: uid(), name: '', price: '', memberIds: [] };
+  const it = { id: uid(), name: '', price: '', memberQty: {}, memberIds: [] };
   items.push(it);
   // append แค่ row ใหม่ — animate เฉพาะตัวนี้
   document.getElementById('items-area').appendChild(buildItemRow(it, true));
@@ -549,23 +584,33 @@ function updateItemPrice(id, val) {
   calculate(); saveDraft();
 }
 
-function toggleMemberOnItem(itemId, memberId) {
+function cycleQtyOnItem(itemId, memberId) {
   const it = items.find(i => i.id === itemId);
   if (!it) return;
-  const has = it.memberIds.includes(memberId);
-  if (has) {
-    it.memberIds = it.memberIds.filter(mid => mid !== memberId);
-  } else {
-    it.memberIds.push(memberId);
-  }
+  migrateItem(it);
+  const cur = it.memberQty[memberId] || 0;
+  it.memberQty[memberId] = cur === 0 ? 1 : cur + 1;
+  it.memberIds = Object.keys(it.memberQty).filter(mid => it.memberQty[mid] > 0);
+
   // Update chip visually without full re-render
   const mi = memberIdx(memberId);
+  const qty = it.memberQty[memberId];
+  const active = qty > 0;
   document.querySelectorAll(`.chip-item-${itemId}[data-mid="${memberId}"]`).forEach(btn => {
-    const newActive = it.memberIds.includes(memberId);
-    btn.className = `member-chip ${newActive ? 'active' : 'inactive'} chip-item-${itemId}`;
-    btn.style.background = newActive ? colorOf(mi) : '';
+    btn.className = `member-chip ${active ? 'active' : 'inactive'} chip-item-${itemId}`;
+    btn.style.background = active ? colorOf(mi) : '';
     btn.style.borderColor = colorOf(mi);
-    btn.style.color = newActive ? '#fff' : colorOf(mi);
+    btn.style.color = active ? '#fff' : colorOf(mi);
+    const qtyEl = btn.querySelector(`.chip-qty-${itemId}-${memberId}`);
+    if (qtyEl) {
+      if (qty > 1) {
+        qtyEl.textContent = '×' + qty;
+        qtyEl.style.cssText = 'font-size:10px;background:rgba(0,0,0,0.25);border-radius:999px;padding:0 4px;margin-left:1px';
+      } else {
+        qtyEl.textContent = '';
+        qtyEl.style.cssText = '';
+      }
+    }
   });
   calculate(); saveDraft();
 }
@@ -573,13 +618,21 @@ function toggleMemberOnItem(itemId, memberId) {
 function toggleAllOnItem(itemId) {
   const it = items.find(i => i.id === itemId);
   if (!it) return;
-  const allSelected = members.every(m => it.memberIds.includes(m.id));
-  it.memberIds = allSelected ? [] : members.map(m => m.id);
+  migrateItem(it);
+  const allSelected = members.every(m => (it.memberQty[m.id] || 0) > 0);
+  if (allSelected) {
+    members.forEach(m => { it.memberQty[m.id] = 0; });
+  } else {
+    members.forEach(m => { if (!it.memberQty[m.id]) it.memberQty[m.id] = 1; });
+  }
+  it.memberIds = Object.keys(it.memberQty).filter(mid => it.memberQty[mid] > 0);
   renderItems(); calculate(); saveDraft();
 }
 
 function clearItems() {
-  items = [{ id: uid(), name: '', price: '', memberIds: members.map(m => m.id) }];
+  const defaultQty = {};
+  members.forEach(m => { defaultQty[m.id] = 1; });
+  items = [{ id: uid(), name: '', price: '', memberQty: defaultQty, memberIds: members.map(m => m.id) }];
   paidStatus = {};
   renderItems(); calculate(); saveDraft();
   showToast('🗑️ ล้างรายการแล้ว');
@@ -613,10 +666,17 @@ function calculate() {
 
   let grand = 0;
   items.forEach(it => {
+    migrateItem(it);
     const price = evaluateMath(it.price);   // ← supports +-*/
     grand += price;
-    const share = it.memberIds.length > 0 ? price / it.memberIds.length : 0;
-    it.memberIds.forEach(mid => { if (totals[mid] !== undefined) totals[mid] += share; });
+    const totalQty = Object.values(it.memberQty).reduce((s, q) => s + (q || 0), 0);
+    if (totalQty > 0) {
+      Object.entries(it.memberQty).forEach(([mid, qty]) => {
+        if ((qty || 0) > 0 && totals[mid] !== undefined) {
+          totals[mid] += price * (qty / totalQty);
+        }
+      });
+    }
   });
 
   document.getElementById('grand-total').textContent = fmt(grand);
@@ -677,7 +737,7 @@ function renderSummary(totals) {
 }
 
 function countItemsForMember(mid) {
-  return items.filter(it => it.memberIds.includes(mid) && evaluateMath(it.price) > 0).length;
+  return items.filter(it => (it.memberQty?.[mid] || 0) > 0 && evaluateMath(it.price) > 0).length;
 }
 
 // ========== RECEIPT ==========
@@ -707,7 +767,12 @@ function openReceipt(sessionData) {
     const label = hasExpr ? `${it.name||'(ไม่มีชื่อ)'} <span style="color:#9ca3af;font-size:9px">(${it.price})</span>` : (it.name||'(ไม่มีชื่อ)');
     div.innerHTML = `<span class="flex-1">${label}</span><span class="font-bold flex-shrink-0">${fmt(price)}</span>`;
     rItems.appendChild(div);
-    const who = _members.filter(m => it.memberIds.includes(m.id)).map(m => m.name).join(', ');
+    const who = _members
+      .filter(m => (it.memberQty ? (it.memberQty[m.id] || 0) : it.memberIds?.includes(m.id)) > 0 || (!it.memberQty && it.memberIds?.includes(m.id)))
+      .map(m => {
+        const qty = it.memberQty ? (it.memberQty[m.id] || 0) : 1;
+        return qty > 1 ? `${m.name}×${qty}` : m.name;
+      }).join(', ');
     const sub = document.createElement('div');
     sub.className = 'text-[9px] text-gray-400 pl-2';
     sub.textContent = '↳ หาร: ' + (who||'-');
@@ -930,7 +995,7 @@ function loadSession(id, e) {
   const s = sessions.find(s => s.id === id);
   if (!s) return;
   members = JSON.parse(JSON.stringify(s.members));
-  items = JSON.parse(JSON.stringify(s.items));
+  items = JSON.parse(JSON.stringify(s.items)).map(migrateItem);
   paidStatus = JSON.parse(JSON.stringify(s.paidStatus || {}));
   renderMembers(); renderItems(); calculate(); saveDraft();
   closeHistoryModal();
