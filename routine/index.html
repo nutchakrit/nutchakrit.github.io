@@ -128,12 +128,18 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Extract env variables securely
+        // Fallback Config from NecoMart to enable offline/local running
+        const MY_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyD-Vgayvdkl165ZO6kYCfv2OOfvZHqB59g",
+            authDomain: "necomart-github.firebaseapp.com",
+            projectId: "necomart-github",
+            storageBucket: "necomart-github.firebasestorage.app",
+            messagingSenderId: "181730496545",
+            appId: "1:181730496545:web:022815a30d6aafd4c65360"
+        };
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'neco-routine-app';
-        let firebaseConfig;
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        } catch(e) { console.error("Firebase config parsing error", e); }
+        let firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : MY_FIREBASE_CONFIG;
 
         window.firebaseApp = firebaseConfig ? initializeApp(firebaseConfig) : null;
         window.auth = window.firebaseApp ? getAuth(window.firebaseApp) : null;
@@ -153,7 +159,7 @@
 
         // --- Cloud Settings Sync Logic ---
         window.syncSettingsToCloud = function() {
-            if(!window.db || !window.currentUser) return;
+            if(!window.db || !window.currentUser || window.currentUser.isAnonymous) return;
             const data = {
                 slideshow: window.ssSettings,
                 alarm: {
@@ -168,7 +174,9 @@
         }
 
         window.loadSettingsFromCloud = function() {
-            if(!window.db || !window.currentUser) return;
+            if(!window.db || !window.currentUser || window.currentUser.isAnonymous) return;
+            
+            // Load App Settings
             const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'settings', 'app');
             window.getDoc(docRef).then(docSnap => {
                 if (docSnap.exists()) {
@@ -181,10 +189,21 @@
                         window.customAlarmEnabled = data.alarm.customEnabled;
                         window.customAlarmVolume = data.alarm.customVolume;
                         window.defaultAlarmVolume = data.alarm.defaultVolume;
-                        // Save local so we have it for fast boot
                         localStorage.setItem('lp_alarm_settings', JSON.stringify(data.alarm));
                         window.applyAlarmSettingsUI();
                     }
+                }
+            });
+
+            // Load Custom Audio Base64 File
+            const audioRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'settings', 'custom_alarm');
+            window.getDoc(audioRef).then(docSnap => {
+                if (docSnap.exists() && docSnap.data().audioData) {
+                    const data = docSnap.data();
+                    document.getElementById('alarm-file-name').innerText = data.name || 'Cloud Sync Audio';
+                    if(window.customAlarmAudio) window.customAlarmAudio.pause();
+                    window.customAlarmAudio = new Audio(data.audioData);
+                    window.customAlarmAudio.loop = false;
                 }
             });
         }
@@ -370,7 +389,7 @@
         <div class="flex items-center justify-center gap-4 flex-grow">
             <!-- Rain/Noise -->
             <button id="btn-rain" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('rain')">🌧️</button>
-            <!-- Plane (Replaced Train) -->
+            <!-- Plane -->
             <button id="btn-plane" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('plane')">✈️</button>
         </div>
 
@@ -419,7 +438,7 @@
             <div id="custom-alarm-section" class="hidden space-y-4 mb-5">
                 <!-- File Upload -->
                 <div>
-                    <label class="text-xs font-bold text-slate-600 mb-2 block">ไฟล์เสียง (MP3, WAV, OGG)</label>
+                    <label class="text-xs font-bold text-slate-600 mb-2 block">ไฟล์เสียง (MP3, WAV, OGG) *ไม่เกิน 1MB</label>
                     <label class="flex items-center gap-3 cursor-pointer bg-slate-100 hover:bg-slate-200 transition rounded-xl p-3 border-2 border-dashed border-slate-300 hover:border-blue-400">
                         <span class="text-2xl">🎵</span>
                         <div class="flex-grow min-w-0">
@@ -481,7 +500,7 @@
                         </label>
                     </div>
                     
-                    <p class="text-[10px] text-slate-500 leading-tight">ลากที่สัญลักษณ์ <span class="font-bold">:::</span> เพื่อสลับลำดับรูปภาพ</p>
+                    <p class="text-[10px] text-slate-500 leading-tight">ลากที่สัญลักษณ์ <span class="font-bold">:::</span> เพื่อสลับลำดับรูปภาพ <br/>*หมายเหตุ: รูปภาพจะเซฟเฉพาะบนเครื่องนี้ (ไม่ Sync ข้ามเครื่อง) เพื่อไม่ให้โหลดหนักครับ</p>
                     
                     <!-- Drag & Drop List -->
                     <div id="ss-image-list" class="flex flex-col gap-2 overflow-y-auto max-h-[35vh] min-h-[200px] bg-slate-100 p-2 rounded-xl border border-slate-200 shadow-inner">
@@ -1002,19 +1021,19 @@
                 this.resume();
                 if(this.ambientNodes['plane']) return;
 
-                // สร้างเสียง Dark Flat Noise
+                // สร้างเสียง Flat Noise ธรรมดา (ไม่มีลูกเล่น LFO)
                 const noiseSource = this.ctx.createBufferSource();
                 noiseSource.buffer = this.createNoiseBuffer();
                 noiseSource.loop = true;
 
-                // ใช้ Lowpass filter ตัดเสียงแหลมออกให้เหลือแต่เสียงทุ้มๆ นุ่มๆ แบบคงที่ (ไม่มีลูกเล่นกระตุก)
+                // ใช้ Lowpass filter กดเสียงแหลมให้เป็น Dark Noise นิ่งๆ
                 const filter = this.ctx.createBiquadFilter();
                 filter.type = 'lowpass';
-                filter.frequency.value = 150; // ความถี่ต่ำเพื่อให้ได้เสียงทุ้มลึก
+                filter.frequency.value = 350; // ความถี่ต่ำเพื่อให้ได้เสียงทุ้ม (Dark)
                 filter.Q.value = 0.5;
 
                 const gain = this.ctx.createGain();
-                gain.gain.value = 1.2;
+                gain.gain.value = 1.0;
 
                 noiseSource.connect(filter);
                 filter.connect(gain);
@@ -1492,48 +1511,11 @@
 
     </script>
     <script>
-        // --- Alarm Sound Database (IndexedDB) ---
-        const ALARM_DB_NAME = 'LovePlusAlarmDB';
-        const ALARM_STORE = 'audio';
-
-        async function openAlarmDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open(ALARM_DB_NAME, 1);
-                req.onupgradeneeded = e => {
-                    if (!e.target.result.objectStoreNames.contains(ALARM_STORE)) {
-                        e.target.result.createObjectStore(ALARM_STORE);
-                    }
-                };
-                req.onsuccess = e => resolve(e.target.result);
-                req.onerror = e => reject(e.target.error);
-            });
-        }
-
-        async function saveAudioFileToDB(file) {
-            const db = await openAlarmDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(ALARM_STORE, 'readwrite');
-                tx.objectStore(ALARM_STORE).put(file, 'custom_sound');
-                tx.oncomplete = resolve;
-                tx.onerror = reject;
-            });
-        }
-
-        async function loadAudioFileFromDB() {
-            const db = await openAlarmDB();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(ALARM_STORE, 'readonly');
-                const req = tx.objectStore(ALARM_STORE).get('custom_sound');
-                req.onsuccess = () => resolve(req.result);
-                req.onerror = () => resolve(null);
-            });
-        }
-
         // --- Alarm Sound Settings ---
         window.customAlarmEnabled = false;
         window.customAlarmVolume = 0.7;
         window.defaultAlarmVolume = 0.5;
-        let customAlarmAudio = null; // HTMLAudioElement for custom sound
+        window.customAlarmAudio = null; // HTMLAudioElement for custom sound
         let testingAlarm = false;
 
         function loadAlarmSettingsLocal() {
@@ -1547,6 +1529,13 @@
                 } catch(e) {}
             }
             window.applyAlarmSettingsUI();
+            
+            // Try loading from local storage for fast boot (if file was small enough to fit in localStorage)
+            const localAudioStr = localStorage.getItem('lp_alarm_audio_cache');
+            if (localAudioStr) {
+                window.customAlarmAudio = new Audio(localAudioStr);
+                window.customAlarmAudio.loop = false;
+            }
         }
 
         function saveAlarmSettings(skipSync = false) {
@@ -1588,14 +1577,14 @@
         window.toggleCustomAlarm = toggleCustomAlarm;
 
         function testCustomAlarm() {
-            if (!customAlarmAudio) {
+            if (!window.customAlarmAudio) {
                 alert('กรุณาเลือกไฟล์เสียงก่อนนะ 🎵');
                 return;
             }
             stopTestAlarm();
-            customAlarmAudio.currentTime = 0;
-            customAlarmAudio.volume = window.customAlarmVolume;
-            customAlarmAudio.play();
+            window.customAlarmAudio.currentTime = 0;
+            window.customAlarmAudio.volume = window.customAlarmVolume;
+            window.customAlarmAudio.play();
             testingAlarm = true;
             const btn = document.getElementById('btn-test-custom-alarm');
             btn.innerText = '⏹ หยุด';
@@ -1627,7 +1616,7 @@
         window.testDefaultAlarm = testDefaultAlarm;
 
         function stopTestAlarm() {
-            if (customAlarmAudio) { customAlarmAudio.pause(); customAlarmAudio.currentTime = 0; }
+            if (window.customAlarmAudio) { window.customAlarmAudio.pause(); window.customAlarmAudio.currentTime = 0; }
             audioApp.stopAlarm();
             const btn1 = document.getElementById('btn-test-custom-alarm');
             const btn2 = document.getElementById('btn-test-default-alarm');
@@ -1636,19 +1625,41 @@
             testingAlarm = false;
         }
 
-        // Alarm file upload
+        // Alarm file upload (Convert to Base64 and Sync)
         document.getElementById('alarm-file-input').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
-            document.getElementById('alarm-file-name').innerText = file.name;
-            const url = URL.createObjectURL(file);
-            if(customAlarmAudio) customAlarmAudio.pause();
-            customAlarmAudio = new Audio(url);
-            customAlarmAudio.loop = false;
+            // Limit size to ~1MB to ensure Firestore can save it
+            if (file.size > 1048576) {
+                alert('ไฟล์ใหญ่เกินไป (จำกัดไม่เกิน 1MB) กรุณาเลือกไฟล์เสียงที่สั้นกว่านี้เพื่อ Sync ครับ 🎶');
+                e.target.value = '';
+                return;
+            }
             
-            // Save to IndexedDB so it survives refresh
-            await saveAudioFileToDB(file);
+            document.getElementById('alarm-file-name').innerText = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const base64Data = event.target.result;
+                
+                if(window.customAlarmAudio) window.customAlarmAudio.pause();
+                window.customAlarmAudio = new Audio(base64Data);
+                window.customAlarmAudio.loop = false;
+                
+                // Cache local to run faster
+                try { localStorage.setItem('lp_alarm_audio_cache', base64Data); } catch(e){}
+                
+                // Upload to Cloud
+                if (window.db && window.currentUser && !window.currentUser.isAnonymous) {
+                    try {
+                        const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'settings', 'custom_alarm');
+                        await window.setDoc(docRef, { audioData: base64Data, name: file.name }, { merge: true });
+                        console.log("☁️ Uploaded Alarm Sound successfully.");
+                    } catch(err) { console.error("Cloud Sync Error", err); }
+                }
+            };
+            reader.readAsDataURL(file);
         });
 
         // Custom volume slider
@@ -1688,11 +1699,11 @@
         const _origStopAlarm = audioApp.stopAlarm.bind(audioApp);
 
         audioApp.playAlarm = function() {
-            if (window.customAlarmEnabled && customAlarmAudio) {
-                customAlarmAudio.currentTime = 0;
-                customAlarmAudio.volume = window.customAlarmVolume;
-                customAlarmAudio.loop = true;
-                customAlarmAudio.play().catch(e => {
+            if (window.customAlarmEnabled && window.customAlarmAudio) {
+                window.customAlarmAudio.currentTime = 0;
+                window.customAlarmAudio.volume = window.customAlarmVolume;
+                window.customAlarmAudio.loop = true;
+                window.customAlarmAudio.play().catch(e => {
                     // Fallback to default if autoplay blocked
                     _origPlayAlarm();
                 });
@@ -1706,10 +1717,10 @@
         };
 
         audioApp.stopAlarm = function() {
-            if (customAlarmAudio) {
-                customAlarmAudio.pause();
-                customAlarmAudio.currentTime = 0;
-                customAlarmAudio.loop = false;
+            if (window.customAlarmAudio) {
+                window.customAlarmAudio.pause();
+                window.customAlarmAudio.currentTime = 0;
+                window.customAlarmAudio.loop = false;
             }
             if (this._alarmMasterSave !== undefined) {
                 this.masterGain.gain.setTargetAtTime(this._alarmMasterSave, this.ctx.currentTime, 0.1);
@@ -1721,15 +1732,6 @@
         // Initialize alarm settings and load audio from DB on load
         document.addEventListener('DOMContentLoaded', async () => {
             loadAlarmSettingsLocal();
-            
-            // Load custom audio file from IndexedDB if it exists
-            const savedAudioFile = await loadAudioFileFromDB();
-            if(savedAudioFile) {
-                document.getElementById('alarm-file-name').innerText = savedAudioFile.name;
-                const url = URL.createObjectURL(savedAudioFile);
-                customAlarmAudio = new Audio(url);
-                customAlarmAudio.loop = false;
-            }
         });
     </script>
 
