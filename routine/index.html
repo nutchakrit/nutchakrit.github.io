@@ -116,7 +116,7 @@
         .drag-item.drag-over { border-color: #3b82f6; background-color: #eff6ff; }
     </style>
 </head>
-<body class="theme-morning min-h-screen text-slate-800 transition-colors duration-1000 p-4 md:p-8 flex flex-col pb-32">
+<body class="theme-morning min-h-screen text-slate-800 transition-colors duration-1000 p-4 md:p-8 flex flex-col pb-32 overflow-x-hidden">
 
     <!-- Slideshow Background Layers -->
     <div id="slideshow-bg-1" class="fixed inset-0 z-[-2] bg-cover bg-center transition-opacity opacity-0 pointer-events-none"></div>
@@ -150,17 +150,55 @@
         window.getDoc = getDoc;
         window.setDoc = setDoc;
         window.onSnapshot = onSnapshot;
+
+        // --- Cloud Settings Sync Logic ---
+        window.syncSettingsToCloud = function() {
+            if(!window.db || !window.currentUser) return;
+            const data = {
+                slideshow: window.ssSettings,
+                alarm: {
+                    customEnabled: window.customAlarmEnabled,
+                    customVolume: window.customAlarmVolume,
+                    defaultVolume: window.defaultAlarmVolume
+                },
+                updatedAt: new Date().toISOString()
+            };
+            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'settings', 'app');
+            window.setDoc(docRef, data, { merge: true }).catch(err => console.error("Error saving settings:", err));
+        }
+
+        window.loadSettingsFromCloud = function() {
+            if(!window.db || !window.currentUser) return;
+            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'settings', 'app');
+            window.getDoc(docRef).then(docSnap => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if(data.slideshow && window.applySlideshowSettings) {
+                        window.ssSettings = { ...window.ssSettings, ...data.slideshow };
+                        window.applySlideshowSettings(true); // pass true to skip syncing back
+                    }
+                    if(data.alarm && window.applyAlarmSettingsUI) {
+                        window.customAlarmEnabled = data.alarm.customEnabled;
+                        window.customAlarmVolume = data.alarm.customVolume;
+                        window.defaultAlarmVolume = data.alarm.defaultVolume;
+                        // Save local so we have it for fast boot
+                        localStorage.setItem('lp_alarm_settings', JSON.stringify(data.alarm));
+                        window.applyAlarmSettingsUI();
+                    }
+                }
+            });
+        }
     </script>
 
     <header id="main-header" class="max-w-6xl mx-auto w-full flex justify-between items-center mb-8 glass-panel rounded-3xl p-4 md:px-8 shadow-lg z-10 relative transition-all duration-500">
         <div id="header-title" class="flex items-center gap-3 transition-opacity duration-300">
             <div>
                 <!-- Change to big clock in Grid Mode -->
-                <h1 id="current-time-display" class="text-3xl md:text-5xl font-black text-lpNight tracking-tighter tabular-nums drop-shadow-sm">00:00:00</h1>
+                <h1 id="current-time-display" class="text-3xl md:text-4xl lg:text-5xl font-black text-lpNight tracking-tighter tabular-nums drop-shadow-sm">00:00:00</h1>
             </div>
         </div>
         
-        <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+        <div class="flex items-center gap-2 sm:gap-3 ml-auto flex-wrap justify-end">
             <div id="auth-container" class="glass-panel px-4 py-2 rounded-full hidden sm:flex items-center gap-2 text-sm font-semibold transition-opacity duration-300">
                 <span id="user-status" class="opacity-70">กำลังเชื่อมต่อ...</span>
                 <button id="btn-login" class="hidden bg-white text-blue-500 px-3 py-1 rounded-full shadow hover:scale-105 transition-transform text-xs">Login Google</button>
@@ -175,6 +213,11 @@
             <!-- Slideshow Settings Button -->
             <button id="btn-slideshow" class="glass-panel px-3 py-2 sm:px-4 rounded-full shadow hover:scale-105 transition-transform font-bold text-sm flex gap-1 items-center text-slate-700 transition-opacity duration-300">
                 🖼️ <span class="hidden sm:inline">สไลด์โชว์</span>
+            </button>
+
+            <!-- Full Screen Button -->
+            <button id="btn-fullscreen" class="glass-panel px-3 py-2 sm:px-4 rounded-full shadow hover:scale-105 transition-transform font-bold text-sm flex gap-1 items-center text-slate-700 transition-opacity duration-300">
+                ⛶ <span class="hidden sm:inline">เต็มจอ</span>
             </button>
 
             <!-- Toggle View Button -->
@@ -296,7 +339,7 @@
                 <div class="absolute -top-20 -right-20 w-64 h-64 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
                 <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
 
-                <div id="focus-clock" class="text-7xl md:text-[8rem] font-black mb-2 tracking-tighter drop-shadow-xl text-slate-800 dark:text-white tabular-nums" style="line-height: 1;">00:00:00</div>
+                <div id="focus-clock" class="text-7xl md:text-6xl lg:text-[8rem] font-black mb-2 tracking-tighter drop-shadow-xl text-slate-800 dark:text-white tabular-nums" style="line-height: 1;">00:00:00</div>
                 
                 <div id="focus-period-badge" class="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-white/50 backdrop-blur-md border border-white/60 shadow-sm mb-10 mt-4">
                     <span id="focus-period-icon" class="text-2xl">🌅</span>
@@ -327,10 +370,8 @@
         <div class="flex items-center justify-center gap-4 flex-grow">
             <!-- Rain/Noise -->
             <button id="btn-rain" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('rain')">🌧️</button>
-            <!-- Train -->
-            <button id="btn-train" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('train')">🚂</button>
-            <!-- Campfire -->
-            <button id="btn-fire" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('fire')">🔥</button>
+            <!-- Plane (Replaced Train) -->
+            <button id="btn-plane" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('plane')">✈️</button>
         </div>
 
         <div class="flex items-center gap-2 w-full sm:w-48 pl-2 sm:pl-4">
@@ -511,13 +552,13 @@
         const SS_DB_NAME = 'LovePlusSlideshowDB';
         const SS_STORE = 'images';
         
-        let slideData = []; // Stores Array of objects: { id, file, url }
+        window.slideData = []; // Stores Array of objects: { id, file, url }
         let currentSlideIdx = 0;
         let slideTimerId = null;
         let activeBgId = 1;
         
         // Default Settings
-        let ssSettings = {
+        window.ssSettings = {
             timer: 10,
             random: false,
             opacity: 40,
@@ -548,7 +589,7 @@
                 const req = store.getAll();
                 req.onsuccess = () => {
                     // Populate slideData array
-                    slideData = req.result.map(file => ({
+                    window.slideData = req.result.map(file => ({
                         id: Math.random().toString(36).substr(2, 9), // Generate temporary unique ID
                         file: file,
                         url: URL.createObjectURL(file)
@@ -564,36 +605,36 @@
                 const tx = db.transaction(SS_STORE, 'readwrite');
                 const store = tx.objectStore(SS_STORE);
                 store.clear(); // Clear all
-                slideData.forEach(item => store.add(item.file)); // Add in new order
+                window.slideData.forEach(item => store.add(item.file)); // Add in new order
                 tx.oncomplete = resolve;
                 tx.onerror = reject;
             });
         }
 
         async function clearImagesDB() {
-            slideData = [];
+            window.slideData = [];
             await syncImagesToDB();
         }
 
         // Apply visual settings to DOM
-        function applySlideshowSettings() {
+        window.applySlideshowSettings = function(skipSync = false) {
             // Save to LocalStorage
-            localStorage.setItem('lp_slideshow_settings', JSON.stringify(ssSettings));
+            localStorage.setItem('lp_slideshow_settings', JSON.stringify(window.ssSettings));
 
             // Overlay Opacity & Color
             const overlay = document.getElementById('slideshow-overlay');
-            const rgb = ssSettings.overlayColor === 'black' ? '0,0,0' : '255,255,255';
-            overlay.style.backgroundColor = `rgba(${rgb}, ${ssSettings.opacity / 100})`;
+            const rgb = window.ssSettings.overlayColor === 'black' ? '0,0,0' : '255,255,255';
+            overlay.style.backgroundColor = `rgba(${rgb}, ${window.ssSettings.opacity / 100})`;
 
             // Render UI
-            document.getElementById('ss-input-timer').value = ssSettings.timer;
-            document.getElementById('ss-slider-fade').value = ssSettings.fadeSpeed;
-            document.getElementById('ss-fade-val').innerText = `${ssSettings.fadeSpeed}s`;
-            document.getElementById('ss-slider-opacity').value = ssSettings.opacity;
-            document.getElementById('ss-opacity-val').innerText = `${ssSettings.opacity}%`;
+            document.getElementById('ss-input-timer').value = window.ssSettings.timer;
+            document.getElementById('ss-slider-fade').value = window.ssSettings.fadeSpeed;
+            document.getElementById('ss-fade-val').innerText = `${window.ssSettings.fadeSpeed}s`;
+            document.getElementById('ss-slider-opacity').value = window.ssSettings.opacity;
+            document.getElementById('ss-opacity-val').innerText = `${window.ssSettings.opacity}%`;
 
             const btnRandom = document.getElementById('ss-btn-random');
-            if (ssSettings.random) {
+            if (window.ssSettings.random) {
                 btnRandom.classList.replace('bg-slate-200', 'bg-blue-500');
                 btnRandom.classList.replace('text-slate-600', 'text-white');
                 btnRandom.innerText = '🔀 Random: ON';
@@ -604,7 +645,7 @@
             }
 
             const btnColor = document.getElementById('ss-btn-color');
-            if (ssSettings.overlayColor === 'black') {
+            if (window.ssSettings.overlayColor === 'black') {
                 btnColor.classList.replace('bg-white', 'bg-slate-800');
                 btnColor.classList.replace('text-slate-800', 'text-white');
                 btnColor.innerText = 'สีดำ (Black)';
@@ -614,22 +655,23 @@
                 btnColor.innerText = 'สีขาว (White)';
             }
             
+            if(!skipSync && window.syncSettingsToCloud) window.syncSettingsToCloud();
             // Restart Timer if running
             startSlideshowTimer();
         }
 
         function crossfadeSlide() {
-            if (slideData.length === 0) return;
+            if (window.slideData.length === 0) return;
 
             // Determine next index
-            if (ssSettings.random && slideData.length > 1) {
+            if (window.ssSettings.random && window.slideData.length > 1) {
                 let nextIdx = currentSlideIdx;
                 while (nextIdx === currentSlideIdx) {
-                    nextIdx = Math.floor(Math.random() * slideData.length);
+                    nextIdx = Math.floor(Math.random() * window.slideData.length);
                 }
                 currentSlideIdx = nextIdx;
             } else {
-                currentSlideIdx = (currentSlideIdx + 1) % slideData.length;
+                currentSlideIdx = (currentSlideIdx + 1) % window.slideData.length;
             }
 
             const nextBgId = activeBgId === 1 ? 2 : 1;
@@ -637,11 +679,11 @@
             const nextEl = document.getElementById(`slideshow-bg-${nextBgId}`);
 
             // Apply Fade Speed
-            currentEl.style.transitionDuration = `${ssSettings.fadeSpeed}s`;
-            nextEl.style.transitionDuration = `${ssSettings.fadeSpeed}s`;
+            currentEl.style.transitionDuration = `${window.ssSettings.fadeSpeed}s`;
+            nextEl.style.transitionDuration = `${window.ssSettings.fadeSpeed}s`;
 
             // Crossfade
-            nextEl.style.backgroundImage = `url('${slideData[currentSlideIdx].url}')`;
+            nextEl.style.backgroundImage = `url('${window.slideData[currentSlideIdx].url}')`;
             nextEl.style.opacity = 1;
             currentEl.style.opacity = 0;
 
@@ -650,18 +692,18 @@
 
         function startSlideshowTimer() {
             if (slideTimerId) clearInterval(slideTimerId);
-            if (slideData.length > 0) {
+            if (window.slideData.length > 0) {
                 // Initial display if both hidden
                 const bg1 = document.getElementById('slideshow-bg-1');
                 const bg2 = document.getElementById('slideshow-bg-2');
                 if(bg1.style.opacity == 0 && bg2.style.opacity == 0) {
-                    bg1.style.backgroundImage = `url('${slideData[0].url}')`;
+                    bg1.style.backgroundImage = `url('${window.slideData[0].url}')`;
                     bg1.style.opacity = 1;
                     activeBgId = 1;
                 }
                 
                 // Safe guard fade speed vs timer (ensure fade isn't longer than timer)
-                const intervalMs = Math.max(ssSettings.timer * 1000, (ssSettings.fadeSpeed * 1000) + 100);
+                const intervalMs = Math.max(window.ssSettings.timer * 1000, (window.ssSettings.fadeSpeed * 1000) + 100);
                 slideTimerId = setInterval(crossfadeSlide, intervalMs);
             } else {
                 // Turn off
@@ -672,8 +714,8 @@
 
         async function refreshSlideshowState() {
             const statusTxt = document.getElementById('ss-status-text');
-            if (slideData.length > 0) {
-                statusTxt.innerText = `รูปภาพทั้งหมด: ${slideData.length} ภาพ`;
+            if (window.slideData.length > 0) {
+                statusTxt.innerText = `รูปภาพทั้งหมด: ${window.slideData.length} ภาพ`;
                 statusTxt.classList.replace('text-slate-500', 'text-blue-600');
                 startSlideshowTimer();
             } else {
@@ -693,12 +735,12 @@
             const list = document.getElementById('ss-image-list');
             list.innerHTML = '';
             
-            if (slideData.length === 0) {
+            if (window.slideData.length === 0) {
                 list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">ยังไม่ได้เพิ่มรูปภาพเลย</div>';
                 return;
             }
 
-            slideData.forEach((item, index) => {
+            window.slideData.forEach((item, index) => {
                 const div = document.createElement('div');
                 div.className = 'drag-item flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-200 shadow-sm transition-colors';
                 div.draggable = true;
@@ -718,7 +760,7 @@
             document.querySelectorAll('.ss-btn-delete').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     const id = e.currentTarget.dataset.id;
-                    slideData = slideData.filter(img => img.id !== id);
+                    window.slideData = window.slideData.filter(img => img.id !== id);
                     await syncImagesToDB();
                     refreshSlideshowState();
                 });
@@ -767,12 +809,12 @@
                 const draggedId = dragSrcEl.dataset.id;
                 const targetId = this.dataset.id;
                 
-                const draggedIndex = slideData.findIndex(item => item.id === draggedId);
-                const targetIndex = slideData.findIndex(item => item.id === targetId);
+                const draggedIndex = window.slideData.findIndex(item => item.id === draggedId);
+                const targetIndex = window.slideData.findIndex(item => item.id === targetId);
                 
                 // Reorder the array
-                const [removed] = slideData.splice(draggedIndex, 1);
-                slideData.splice(targetIndex, 0, removed);
+                const [removed] = window.slideData.splice(draggedIndex, 1);
+                window.slideData.splice(targetIndex, 0, removed);
                 
                 // Sync to DB & Re-render
                 await syncImagesToDB();
@@ -811,7 +853,7 @@
             if(files.length > 0) {
                 // Add to array in memory
                 files.forEach(file => {
-                    slideData.push({
+                    window.slideData.push({
                         id: Math.random().toString(36).substr(2, 9),
                         file: file,
                         url: URL.createObjectURL(file)
@@ -832,42 +874,42 @@
         });
 
         document.getElementById('ss-btn-up').addEventListener('click', () => {
-            ssSettings.timer = parseInt(document.getElementById('ss-input-timer').value) + 1;
-            applySlideshowSettings();
+            window.ssSettings.timer = parseInt(document.getElementById('ss-input-timer').value) + 1;
+            window.applySlideshowSettings();
         });
         
         document.getElementById('ss-btn-down').addEventListener('click', () => {
             let val = parseInt(document.getElementById('ss-input-timer').value) - 1;
             if (val < 1) val = 1;
-            ssSettings.timer = val;
-            applySlideshowSettings();
+            window.ssSettings.timer = val;
+            window.applySlideshowSettings();
         });
 
         document.getElementById('ss-input-timer').addEventListener('change', (e) => {
             let val = parseInt(e.target.value);
             if(isNaN(val) || val < 1) val = 1;
-            ssSettings.timer = val;
-            applySlideshowSettings();
+            window.ssSettings.timer = val;
+            window.applySlideshowSettings();
         });
 
         document.getElementById('ss-btn-random').addEventListener('click', () => {
-            ssSettings.random = !ssSettings.random;
-            applySlideshowSettings();
+            window.ssSettings.random = !window.ssSettings.random;
+            window.applySlideshowSettings();
         });
 
         document.getElementById('ss-btn-color').addEventListener('click', () => {
-            ssSettings.overlayColor = ssSettings.overlayColor === 'black' ? 'white' : 'black';
-            applySlideshowSettings();
+            window.ssSettings.overlayColor = window.ssSettings.overlayColor === 'black' ? 'white' : 'black';
+            window.applySlideshowSettings();
         });
 
         document.getElementById('ss-slider-opacity').addEventListener('input', (e) => {
-            ssSettings.opacity = e.target.value;
-            applySlideshowSettings();
+            window.ssSettings.opacity = e.target.value;
+            window.applySlideshowSettings();
         });
 
         document.getElementById('ss-slider-fade').addEventListener('input', (e) => {
-            ssSettings.fadeSpeed = e.target.value;
-            applySlideshowSettings();
+            window.ssSettings.fadeSpeed = e.target.value;
+            window.applySlideshowSettings();
         });
 
         // Initialize Slideshow
@@ -875,9 +917,9 @@
             // Load Settings
             const savedSettings = localStorage.getItem('lp_slideshow_settings');
             if (savedSettings) {
-                try { ssSettings = { ...ssSettings, ...JSON.parse(savedSettings) }; } catch(e){}
+                try { window.ssSettings = { ...window.ssSettings, ...JSON.parse(savedSettings) }; } catch(e){}
             }
-            applySlideshowSettings();
+            window.applySlideshowSettings(true); // Don't trigger cloud save on init
 
             // Load Images
             await loadImagesFromDB();
@@ -921,8 +963,9 @@
 
             stopAmbient(type) {
                 if (this.ambientNodes[type]) {
-                    this.ambientNodes[type].source.stop();
-                    this.ambientNodes[type].source.disconnect();
+                    if (typeof this.ambientNodes[type].stop === 'function') {
+                        this.ambientNodes[type].stop();
+                    }
                     delete this.ambientNodes[type];
                 }
             }
@@ -947,89 +990,43 @@
                 gain.connect(this.masterGain);
                 
                 noiseSource.start();
-                this.ambientNodes['rain'] = { source: noiseSource, gain: gain };
+                this.ambientNodes['rain'] = { 
+                    stop: () => {
+                        noiseSource.stop();
+                        noiseSource.disconnect();
+                    }
+                };
             }
 
-            playTrain() {
+            playPlane() {
                 this.resume();
-                if(this.ambientNodes['train']) return;
+                if(this.ambientNodes['plane']) return;
 
+                // สร้างเสียง Dark Flat Noise
                 const noiseSource = this.ctx.createBufferSource();
                 noiseSource.buffer = this.createNoiseBuffer();
                 noiseSource.loop = true;
 
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = 'bandpass';
-                filter.frequency.value = 400;
-                filter.Q.value = 0.5;
-
-                const lfo = this.ctx.createOscillator();
-                lfo.type = 'square';
-                lfo.frequency.value = 3.5; 
-
-                const lfoGain = this.ctx.createGain();
-                lfoGain.gain.value = 0.6; 
-                lfo.connect(lfoGain);
-
-                const gain = this.ctx.createGain();
-                gain.gain.value = 0.5; 
-                
-                lfoGain.connect(gain.gain);
-
-                noiseSource.connect(filter);
-                filter.connect(gain);
-                gain.connect(this.masterGain);
-
-                noiseSource.start();
-                lfo.start();
-                this.ambientNodes['train'] = { source: noiseSource, lfo: lfo, gain: gain };
-            }
-
-            playFire() {
-                this.resume();
-                if(this.ambientNodes['fire']) return;
-
-                const noiseSource = this.ctx.createBufferSource();
-                noiseSource.buffer = this.createNoiseBuffer();
-                noiseSource.loop = true;
-
+                // ใช้ Lowpass filter ตัดเสียงแหลมออกให้เหลือแต่เสียงทุ้มๆ นุ่มๆ แบบคงที่ (ไม่มีลูกเล่นกระตุก)
                 const filter = this.ctx.createBiquadFilter();
                 filter.type = 'lowpass';
-                filter.frequency.value = 200;
+                filter.frequency.value = 150; // ความถี่ต่ำเพื่อให้ได้เสียงทุ้มลึก
+                filter.Q.value = 0.5;
 
                 const gain = this.ctx.createGain();
-                gain.gain.value = 1.5;
+                gain.gain.value = 1.2;
 
                 noiseSource.connect(filter);
                 filter.connect(gain);
                 gain.connect(this.masterGain);
+
                 noiseSource.start();
 
-                const crackleInterval = setInterval(() => {
-                    if(Math.random() > 0.6) {
-                        const osc = this.ctx.createOscillator();
-                        const oscGain = this.ctx.createGain();
-                        osc.type = 'square';
-                        osc.frequency.setValueAtTime(100 + Math.random()*500, this.ctx.currentTime);
-                        osc.frequency.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-                        
-                        oscGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
-                        oscGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
-                        
-                        osc.connect(oscGain);
-                        oscGain.connect(this.masterGain);
-                        osc.start();
-                        osc.stop(this.ctx.currentTime + 0.1);
-                    }
-                }, 100);
-
-                this.ambientNodes['fire'] = { source: noiseSource, gain: gain, interval: crackleInterval };
-            }
-
-            stopFireCrackle() {
-                if(this.ambientNodes['fire'] && this.ambientNodes['fire'].interval) {
-                    clearInterval(this.ambientNodes['fire'].interval);
-                }
+                this.ambientNodes['plane'] = { 
+                    stop: () => {
+                        noiseSource.stop(); noiseSource.disconnect();
+                    } 
+                };
             }
 
             playAlarm() {
@@ -1075,7 +1072,7 @@
         let currentPeriod = null; 
         let hasInitializedAudio = false;
         let dbUnsubscribe = null;
-        let currentUser = null;
+        window.currentUser = null;
         let debounceTimer;
         let isFocusMode = false;
 
@@ -1099,8 +1096,9 @@
             const headerTitle = document.getElementById('header-title');
             const authContainer = document.getElementById('auth-container');
             const btnAudio = document.getElementById('btn-enable-audio');
-            const btnSlideshow = document.getElementById('btn-slideshow'); // New Slideshow Button
+            const btnSlideshow = document.getElementById('btn-slideshow');
             const btnAlarmSettings = document.getElementById('btn-alarm-settings');
+            const btnFullscreen = document.getElementById('btn-fullscreen');
 
             if (isFocusMode) {
                 // Switch to Focus
@@ -1110,6 +1108,7 @@
                 btnAudio.classList.add('opacity-0', 'pointer-events-none');
                 btnSlideshow.classList.add('opacity-0', 'pointer-events-none');
                 btnAlarmSettings.classList.add('opacity-0', 'pointer-events-none');
+                btnFullscreen.classList.add('opacity-0', 'pointer-events-none');
                 
                 setTimeout(() => {
                     headerTitle.classList.add('hidden');
@@ -1117,6 +1116,7 @@
                     btnAudio.classList.add('hidden');
                     btnSlideshow.classList.add('hidden');
                     btnAlarmSettings.classList.add('hidden');
+                    btnFullscreen.classList.add('hidden');
                 }, 300);
 
                 viewGrid.classList.add('opacity-0');
@@ -1137,6 +1137,7 @@
                 authContainer.classList.remove('hidden');
                 btnSlideshow.classList.remove('hidden');
                 btnAlarmSettings.classList.remove('hidden');
+                btnFullscreen.classList.remove('hidden');
                 if (!hasInitializedAudio) btnAudio.classList.remove('hidden');
                 
                 setTimeout(() => {
@@ -1144,6 +1145,7 @@
                     authContainer.classList.remove('opacity-0', 'pointer-events-none');
                     btnSlideshow.classList.remove('opacity-0', 'pointer-events-none');
                     btnAlarmSettings.classList.remove('opacity-0', 'pointer-events-none');
+                    btnFullscreen.classList.remove('opacity-0', 'pointer-events-none');
                     if (!hasInitializedAudio) btnAudio.classList.remove('opacity-0', 'pointer-events-none');
                 }, 50);
 
@@ -1210,12 +1212,10 @@
             });
 
             if (currentAmbient === type) {
-                if(type==='fire') audioApp.stopFireCrackle();
                 audioApp.stopAmbient(type);
                 currentAmbient = null;
             } else {
                 if(currentAmbient) {
-                    if(currentAmbient==='fire') audioApp.stopFireCrackle();
                     audioApp.stopAmbient(currentAmbient);
                 }
                 
@@ -1224,8 +1224,7 @@
                 document.getElementById(`btn-${type}`).classList.add('shadow-inner', 'scale-90');
                 
                 if(type === 'rain') audioApp.playRain();
-                if(type === 'train') audioApp.playTrain();
-                if(type === 'fire') audioApp.playFire();
+                if(type === 'plane') audioApp.playPlane();
             }
         }
         window.toggleAmbient = toggleAmbient; // Expose to HTML
@@ -1369,7 +1368,7 @@
 
         // --- Firebase Data Sync ---
         function saveRoutineData() {
-            if(!window.db || !currentUser) return;
+            if(!window.db || !window.currentUser) return;
             
             const data = {
                 morning: document.getElementById('text-morning').value,
@@ -1379,14 +1378,14 @@
                 updatedAt: new Date().toISOString()
             };
 
-            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'routines', 'daily');
+            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'routines', 'daily');
             window.setDoc(docRef, data, { merge: true }).catch(err => console.error("Error saving:", err));
         }
 
         function loadRoutineData() {
-            if(!window.db || !currentUser) return;
+            if(!window.db || !window.currentUser) return;
             
-            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'routines', 'daily');
+            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', window.currentUser.uid, 'routines', 'daily');
             
             if(dbUnsubscribe) dbUnsubscribe();
             
@@ -1421,7 +1420,7 @@
             } catch(e) { console.error("Auth init error:", e); }
 
             window.onAuthStateChanged(window.auth, (user) => {
-                currentUser = user;
+                window.currentUser = user;
                 const statusEl = document.getElementById('user-status');
                 const btnLogin = document.getElementById('btn-login');
                 const btnLogout = document.getElementById('btn-logout');
@@ -1437,6 +1436,7 @@
                         btnLogout.classList.remove('hidden');
                     }
                     loadRoutineData();
+                    if(window.loadSettingsFromCloud) window.loadSettingsFromCloud();
                 } else {
                     statusEl.innerText = "Not logged in";
                     if(dbUnsubscribe) dbUnsubscribe();
@@ -1466,46 +1466,105 @@
             setInterval(updateClock, 1000);
             await initSlideshow();
             initAuth();
+            
+            // Fullscreen Logic
+            const btnFullscreen = document.getElementById('btn-fullscreen');
+            if(btnFullscreen) {
+                btnFullscreen.addEventListener('click', () => {
+                    if (!document.fullscreenElement) {
+                        document.documentElement.requestFullscreen().catch(err => {
+                            console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                        });
+                    } else {
+                        document.exitFullscreen();
+                    }
+                });
+
+                document.addEventListener('fullscreenchange', () => {
+                    if (document.fullscreenElement) {
+                        btnFullscreen.innerHTML = '🗗 <span class="hidden sm:inline">ย่อจอ</span>';
+                    } else {
+                        btnFullscreen.innerHTML = '⛶ <span class="hidden sm:inline">เต็มจอ</span>';
+                    }
+                });
+            }
         });
 
     </script>
     <script>
+        // --- Alarm Sound Database (IndexedDB) ---
+        const ALARM_DB_NAME = 'LovePlusAlarmDB';
+        const ALARM_STORE = 'audio';
+
+        async function openAlarmDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(ALARM_DB_NAME, 1);
+                req.onupgradeneeded = e => {
+                    if (!e.target.result.objectStoreNames.contains(ALARM_STORE)) {
+                        e.target.result.createObjectStore(ALARM_STORE);
+                    }
+                };
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = e => reject(e.target.error);
+            });
+        }
+
+        async function saveAudioFileToDB(file) {
+            const db = await openAlarmDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(ALARM_STORE, 'readwrite');
+                tx.objectStore(ALARM_STORE).put(file, 'custom_sound');
+                tx.oncomplete = resolve;
+                tx.onerror = reject;
+            });
+        }
+
+        async function loadAudioFileFromDB() {
+            const db = await openAlarmDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(ALARM_STORE, 'readonly');
+                const req = tx.objectStore(ALARM_STORE).get('custom_sound');
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
+            });
+        }
+
         // --- Alarm Sound Settings ---
-        let customAlarmEnabled = false;
-        let customAlarmBuffer = null;
-        let customAlarmVolume = 0.7;
-        let defaultAlarmVolume = 0.5;
+        window.customAlarmEnabled = false;
+        window.customAlarmVolume = 0.7;
+        window.defaultAlarmVolume = 0.5;
         let customAlarmAudio = null; // HTMLAudioElement for custom sound
         let testingAlarm = false;
 
-        function loadAlarmSettings() {
+        function loadAlarmSettingsLocal() {
             const saved = localStorage.getItem('lp_alarm_settings');
             if (saved) {
                 try {
                     const s = JSON.parse(saved);
-                    customAlarmEnabled = s.customEnabled || false;
-                    customAlarmVolume = s.customVolume !== undefined ? s.customVolume : 0.7;
-                    defaultAlarmVolume = s.defaultVolume !== undefined ? s.defaultVolume : 0.5;
+                    window.customAlarmEnabled = s.customEnabled || false;
+                    window.customAlarmVolume = s.customVolume !== undefined ? s.customVolume : 0.7;
+                    window.defaultAlarmVolume = s.defaultVolume !== undefined ? s.defaultVolume : 0.5;
                 } catch(e) {}
             }
-            applyAlarmSettingsUI();
+            window.applyAlarmSettingsUI();
         }
 
-        function saveAlarmSettings() {
+        function saveAlarmSettings(skipSync = false) {
             localStorage.setItem('lp_alarm_settings', JSON.stringify({
-                customEnabled: customAlarmEnabled,
-                customVolume: customAlarmVolume,
-                defaultVolume: defaultAlarmVolume
+                customEnabled: window.customAlarmEnabled,
+                customVolume: window.customAlarmVolume,
+                defaultVolume: window.defaultAlarmVolume
             }));
+            if(!skipSync && window.syncSettingsToCloud) window.syncSettingsToCloud();
         }
 
-        function applyAlarmSettingsUI() {
+        window.applyAlarmSettingsUI = function() {
             const knob = document.getElementById('custom-alarm-knob');
             const toggle = document.getElementById('btn-toggle-custom-alarm');
             const customSection = document.getElementById('custom-alarm-section');
             const defaultSection = document.getElementById('default-alarm-section');
 
-            if (customAlarmEnabled) {
+            if (window.customAlarmEnabled) {
                 toggle.classList.replace('bg-slate-300', 'bg-purple-400');
                 knob.style.transform = 'translateX(28px)';
                 customSection.classList.remove('hidden');
@@ -1515,16 +1574,16 @@
                 customSection.classList.add('hidden');
             }
 
-            document.getElementById('custom-alarm-volume').value = customAlarmVolume * 100;
-            document.getElementById('custom-alarm-volume-val').innerText = `${Math.round(customAlarmVolume * 100)}%`;
-            document.getElementById('default-alarm-volume').value = defaultAlarmVolume * 100;
-            document.getElementById('default-alarm-volume-val').innerText = `${Math.round(defaultAlarmVolume * 100)}%`;
+            document.getElementById('custom-alarm-volume').value = window.customAlarmVolume * 100;
+            document.getElementById('custom-alarm-volume-val').innerText = `${Math.round(window.customAlarmVolume * 100)}%`;
+            document.getElementById('default-alarm-volume').value = window.defaultAlarmVolume * 100;
+            document.getElementById('default-alarm-volume-val').innerText = `${Math.round(window.defaultAlarmVolume * 100)}%`;
         }
 
         function toggleCustomAlarm() {
-            customAlarmEnabled = !customAlarmEnabled;
+            window.customAlarmEnabled = !window.customAlarmEnabled;
             saveAlarmSettings();
-            applyAlarmSettingsUI();
+            window.applyAlarmSettingsUI();
         }
         window.toggleCustomAlarm = toggleCustomAlarm;
 
@@ -1535,7 +1594,7 @@
             }
             stopTestAlarm();
             customAlarmAudio.currentTime = 0;
-            customAlarmAudio.volume = customAlarmVolume;
+            customAlarmAudio.volume = window.customAlarmVolume;
             customAlarmAudio.play();
             testingAlarm = true;
             const btn = document.getElementById('btn-test-custom-alarm');
@@ -1552,7 +1611,7 @@
             stopTestAlarm();
             // Temporarily override alarm volume
             const origGain = audioApp.masterGain.gain.value;
-            audioApp.masterGain.gain.setTargetAtTime(defaultAlarmVolume, audioApp.ctx.currentTime, 0.05);
+            audioApp.masterGain.gain.setTargetAtTime(window.defaultAlarmVolume, audioApp.ctx.currentTime, 0.05);
             audioApp.playAlarm();
             testingAlarm = true;
             const btn = document.getElementById('btn-test-default-alarm');
@@ -1578,26 +1637,31 @@
         }
 
         // Alarm file upload
-        document.getElementById('alarm-file-input').addEventListener('change', (e) => {
+        document.getElementById('alarm-file-input').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            
             document.getElementById('alarm-file-name').innerText = file.name;
             const url = URL.createObjectURL(file);
+            if(customAlarmAudio) customAlarmAudio.pause();
             customAlarmAudio = new Audio(url);
             customAlarmAudio.loop = false;
+            
+            // Save to IndexedDB so it survives refresh
+            await saveAudioFileToDB(file);
         });
 
         // Custom volume slider
         document.getElementById('custom-alarm-volume').addEventListener('input', (e) => {
-            customAlarmVolume = e.target.value / 100;
-            document.getElementById('custom-alarm-volume-val').innerText = `${Math.round(customAlarmVolume * 100)}%`;
+            window.customAlarmVolume = e.target.value / 100;
+            document.getElementById('custom-alarm-volume-val').innerText = `${Math.round(window.customAlarmVolume * 100)}%`;
             saveAlarmSettings();
         });
 
         // Default volume slider
         document.getElementById('default-alarm-volume').addEventListener('input', (e) => {
-            defaultAlarmVolume = e.target.value / 100;
-            document.getElementById('default-alarm-volume-val').innerText = `${Math.round(defaultAlarmVolume * 100)}%`;
+            window.defaultAlarmVolume = e.target.value / 100;
+            document.getElementById('default-alarm-volume-val').innerText = `${Math.round(window.defaultAlarmVolume * 100)}%`;
             saveAlarmSettings();
         });
 
@@ -1624,9 +1688,9 @@
         const _origStopAlarm = audioApp.stopAlarm.bind(audioApp);
 
         audioApp.playAlarm = function() {
-            if (customAlarmEnabled && customAlarmAudio) {
+            if (window.customAlarmEnabled && customAlarmAudio) {
                 customAlarmAudio.currentTime = 0;
-                customAlarmAudio.volume = customAlarmVolume;
+                customAlarmAudio.volume = window.customAlarmVolume;
                 customAlarmAudio.loop = true;
                 customAlarmAudio.play().catch(e => {
                     // Fallback to default if autoplay blocked
@@ -1635,7 +1699,7 @@
             } else {
                 // Use default alarm with its own volume
                 const savedMaster = this.masterGain.gain.value;
-                this.masterGain.gain.setTargetAtTime(defaultAlarmVolume, this.ctx.currentTime, 0.05);
+                this.masterGain.gain.setTargetAtTime(window.defaultAlarmVolume, this.ctx.currentTime, 0.05);
                 this._alarmMasterSave = savedMaster;
                 _origPlayAlarm();
             }
@@ -1654,9 +1718,18 @@
             _origStopAlarm();
         };
 
-        // Initialize alarm settings on load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadAlarmSettings();
+        // Initialize alarm settings and load audio from DB on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            loadAlarmSettingsLocal();
+            
+            // Load custom audio file from IndexedDB if it exists
+            const savedAudioFile = await loadAudioFileFromDB();
+            if(savedAudioFile) {
+                document.getElementById('alarm-file-name').innerText = savedAudioFile.name;
+                const url = URL.createObjectURL(savedAudioFile);
+                customAlarmAudio = new Audio(url);
+                customAlarmAudio.loop = false;
+            }
         });
     </script>
 
