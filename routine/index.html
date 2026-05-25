@@ -1,0 +1,1664 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Daily Routine - Love Plus Style</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Mali', 'sans-serif'] },
+                    colors: {
+                        lpMorning: '#a8d8ea',
+                        lpNoon: '#fcbad3',
+                        lpEvening: '#ffb38a',
+                        lpNight: '#aa96da',
+                        glassBg: 'rgba(255, 255, 255, 0.7)',
+                        glassBorder: 'rgba(255, 255, 255, 0.4)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #f8fafc;
+            transition: background-color 1s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        /* Dynamic Backgrounds based on time (Solid Colors) */
+        body.theme-morning { background-color: #e0f2fe; } /* sky-100 */
+        body.theme-noon { background-color: #fce7f3; } /* pink-100 */
+        body.theme-evening { background-color: #ffedd5; } /* orange-100 */
+        body.theme-night { background-color: #e0e7ff; } /* indigo-100 */
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        }
+
+        .dark .glass-panel {
+            background: rgba(20, 20, 30, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #eee;
+        }
+
+        .routine-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: grayscale(40%) opacity(0.8);
+            transform: scale(0.98);
+        }
+
+        .routine-card.active {
+            filter: grayscale(0%) opacity(1);
+            transform: scale(1.02);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            border-width: 2px;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .floating { animation: float 6s ease-in-out infinite; }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(255, 255, 255, 0); }
+            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+        .active-badge { animation: pulse-ring 2s infinite; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px; width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.5);
+            border-radius: 2px;
+        }
+
+        .sidebar-item { transition: all 0.3s; }
+        .sidebar-item.active { display: none; }
+        
+        /* Drag Item Styling */
+        .drag-item.dragging { opacity: 0.4; }
+        .drag-item.drag-over { border-color: #3b82f6; background-color: #eff6ff; }
+    </style>
+</head>
+<body class="theme-morning min-h-screen text-slate-800 transition-colors duration-1000 p-4 md:p-8 flex flex-col pb-32">
+
+    <!-- Slideshow Background Layers -->
+    <div id="slideshow-bg-1" class="fixed inset-0 z-[-2] bg-cover bg-center transition-opacity opacity-0 pointer-events-none"></div>
+    <div id="slideshow-bg-2" class="fixed inset-0 z-[-2] bg-cover bg-center transition-opacity opacity-0 pointer-events-none"></div>
+    <div id="slideshow-overlay" class="fixed inset-0 z-[-1] transition-colors duration-500 pointer-events-none" style="background-color: rgba(0,0,0,0);"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Extract env variables securely
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'neco-routine-app';
+        let firebaseConfig;
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch(e) { console.error("Firebase config parsing error", e); }
+
+        window.firebaseApp = firebaseConfig ? initializeApp(firebaseConfig) : null;
+        window.auth = window.firebaseApp ? getAuth(window.firebaseApp) : null;
+        window.db = window.firebaseApp ? getFirestore(window.firebaseApp) : null;
+        window.appId = appId;
+        
+        window.signInAnonymously = signInAnonymously;
+        window.signInWithCustomToken = signInWithCustomToken;
+        window.onAuthStateChanged = onAuthStateChanged;
+        window.GoogleAuthProvider = GoogleAuthProvider;
+        window.signInWithPopup = signInWithPopup;
+        window.signOut = signOut;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.setDoc = setDoc;
+        window.onSnapshot = onSnapshot;
+    </script>
+
+    <header id="main-header" class="max-w-6xl mx-auto w-full flex justify-between items-center mb-8 glass-panel rounded-3xl p-4 md:px-8 shadow-lg z-10 relative transition-all duration-500">
+        <div id="header-title" class="flex items-center gap-3 transition-opacity duration-300">
+            <div>
+                <!-- Change to big clock in Grid Mode -->
+                <h1 id="current-time-display" class="text-3xl md:text-5xl font-black text-lpNight tracking-tighter tabular-nums drop-shadow-sm">00:00:00</h1>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-3 ml-auto">
+            <div id="auth-container" class="glass-panel px-4 py-2 rounded-full hidden sm:flex items-center gap-2 text-sm font-semibold transition-opacity duration-300">
+                <span id="user-status" class="opacity-70">กำลังเชื่อมต่อ...</span>
+                <button id="btn-login" class="hidden bg-white text-blue-500 px-3 py-1 rounded-full shadow hover:scale-105 transition-transform text-xs">Login Google</button>
+                <button id="btn-logout" class="hidden bg-red-400 text-white px-3 py-1 rounded-full shadow hover:scale-105 transition-transform text-xs">Logout</button>
+            </div>
+            
+            <!-- Alarm Sound Settings Button -->
+            <button id="btn-alarm-settings" class="glass-panel px-3 py-2 sm:px-4 rounded-full shadow hover:scale-105 transition-transform font-bold text-sm flex gap-1 items-center text-slate-700 transition-opacity duration-300">
+                🔔 <span class="hidden sm:inline">เสียงแจ้งเตือน</span>
+            </button>
+
+            <!-- Slideshow Settings Button -->
+            <button id="btn-slideshow" class="glass-panel px-3 py-2 sm:px-4 rounded-full shadow hover:scale-105 transition-transform font-bold text-sm flex gap-1 items-center text-slate-700 transition-opacity duration-300">
+                🖼️ <span class="hidden sm:inline">สไลด์โชว์</span>
+            </button>
+
+            <!-- Toggle View Button -->
+            <button id="btn-toggle-view" class="glass-panel px-3 py-2 sm:px-4 rounded-full shadow hover:scale-105 transition-transform font-bold text-sm flex gap-1 items-center text-slate-700">
+                <span id="view-icon">👁️</span> <span id="view-text" class="hidden sm:inline">Focus Mode</span>
+            </button>
+
+            <!-- Interactive Enable Audio Button -->
+            <button id="btn-enable-audio" class="bg-gradient-to-r from-emerald-400 to-teal-400 text-white px-3 py-2 sm:px-4 rounded-full shadow-lg hover:scale-105 transition-transform font-bold text-sm flex gap-1 items-center transition-opacity duration-300">
+                <span>▶️</span> Start Day
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto w-full z-10 relative flex-grow flex flex-col">
+        
+        <!-- ================= GRID VIEW ================= -->
+        <div id="view-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full transition-opacity duration-500">
+            <!-- Morning (朝) -->
+            <div id="card-morning" class="routine-card glass-panel rounded-[2rem] p-6 flex flex-col border-lpMorning">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl drop-shadow-md">🌅</span>
+                        <div>
+                            <h2 class="text-lg font-bold text-sky-600">朝 (เช้า)</h2>
+                            <p class="text-xs font-semibold opacity-60">08:00 - 11:59</p>
+                        </div>
+                    </div>
+                    <div class="indicator hidden w-3 h-3 bg-sky-400 rounded-full active-badge"></div>
+                </div>
+                <input type="text" id="text-morning" class="w-full flex-grow bg-white/30 rounded-xl p-3 text-base text-center focus:outline-none focus:ring-2 ring-sky-300 font-bold placeholder-slate-500/50 shadow-inner" placeholder="ทำอะไรดีนะ?..." maxlength="20">
+            </div>
+
+            <!-- Afternoon (昼) -->
+            <div id="card-afternoon" class="routine-card glass-panel rounded-[2rem] p-6 flex flex-col border-lpNoon">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl drop-shadow-md">☀️</span>
+                        <div>
+                            <h2 class="text-lg font-bold text-pink-600">昼 (กลางวัน)</h2>
+                            <p class="text-xs font-semibold opacity-60">12:00 - 14:59</p>
+                        </div>
+                    </div>
+                    <div class="indicator hidden w-3 h-3 bg-pink-400 rounded-full active-badge"></div>
+                </div>
+                <input type="text" id="text-afternoon" class="w-full flex-grow bg-white/30 rounded-xl p-3 text-base text-center focus:outline-none focus:ring-2 ring-pink-300 font-bold placeholder-slate-500/50 shadow-inner" placeholder="งาน หรือ เรียน..." maxlength="20">
+            </div>
+
+            <!-- Evening (夕方) -->
+            <div id="card-evening" class="routine-card glass-panel rounded-[2rem] p-6 flex flex-col border-lpEvening">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl drop-shadow-md">🌇</span>
+                        <div>
+                            <h2 class="text-lg font-bold text-orange-600">夕方 (เย็น)</h2>
+                            <p class="text-xs font-semibold opacity-60">15:00 - 17:59</p>
+                        </div>
+                    </div>
+                    <div class="indicator hidden w-3 h-3 bg-orange-400 rounded-full active-badge"></div>
+                </div>
+                <input type="text" id="text-evening" class="w-full flex-grow bg-white/30 rounded-xl p-3 text-base text-center focus:outline-none focus:ring-2 ring-orange-300 font-bold placeholder-slate-500/50 shadow-inner" placeholder="พักผ่อน ทานข้าว..." maxlength="20">
+            </div>
+            
+            <!-- Night (夜) -->
+            <div id="card-night" class="routine-card glass-panel rounded-[2rem] p-6 flex flex-col border-lpNight">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl drop-shadow-md">🌃</span>
+                        <div>
+                            <h2 class="text-lg font-bold text-purple-600">夜 (ค่ำ)</h2>
+                            <p class="text-xs font-semibold opacity-60">18:00 - 20:59</p>
+                        </div>
+                    </div>
+                    <div class="indicator hidden w-3 h-3 bg-purple-400 rounded-full active-badge"></div>
+                </div>
+                <input type="text" id="text-night" class="w-full flex-grow bg-white/30 rounded-xl p-3 text-base text-center focus:outline-none focus:ring-2 ring-purple-300 font-bold placeholder-slate-500/50 shadow-inner" placeholder="กิจกรรมส่วนตัว..." maxlength="20">
+            </div>
+
+            <!-- Deep Night (深夜 - Locked) -->
+            <div id="card-deepnight" class="routine-card glass-panel rounded-[2rem] p-6 flex flex-col border-lpNight col-span-1 md:col-span-2 lg:col-span-4 mt-2">
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="text-3xl drop-shadow-md">🌙</span>
+                        <div>
+                            <h2 class="text-lg font-bold text-indigo-600">深夜 (ดึก - เข้านอน)</h2>
+                            <p class="text-xs font-semibold opacity-60">21:00 - 04:59 (AM 5:00-8:00 รวบยอดเป็นเช้าตรู่)</p>
+                        </div>
+                    </div>
+                    <div class="indicator hidden w-3 h-3 bg-indigo-400 rounded-full active-badge"></div>
+                </div>
+                <div class="w-full flex-grow bg-indigo-900/10 rounded-xl p-3 flex items-center justify-center text-lg font-bold text-indigo-500 shadow-inner border border-indigo-200/50 min-h-[3rem]">
+                    เข้านอนพักผ่อน 💤
+                </div>
+                <input type="hidden" id="text-deepnight" value="เข้านอนพักผ่อน 💤">
+            </div>
+        </div>
+
+        <!-- ================= FOCUS VIEW (Love Plus Style) ================= -->
+        <div id="view-focus" class="hidden flex-col md:flex-row gap-6 w-full h-full min-h-[60vh] transition-opacity duration-500 opacity-0 items-center justify-center">
+            
+            <!-- Sidebar Area -->
+            <div class="flex flex-row md:flex-col gap-4 w-full md:w-1/4 lg:w-1/5 order-2 md:order-1 overflow-visible">
+                
+                <!-- Dummy Action Buttons -->
+                <div class="flex flex-row gap-4 w-full justify-center mb-2">
+                    <button id="btn-action-tea" onclick="toggleActionBtn('btn-action-tea')" class="w-14 h-14 rounded-full glass-panel flex items-center justify-center text-3xl hover:bg-white/80 transition-all duration-300 shadow-md border-2 border-transparent outline-none">🍵</button>
+                    <button id="btn-action-paw" onclick="toggleActionBtn('btn-action-paw')" class="w-14 h-14 rounded-full glass-panel flex items-center justify-center text-3xl hover:bg-white/80 transition-all duration-300 shadow-md border-2 border-transparent outline-none">🐾</button>
+                </div>
+
+                <!-- Sidebar (Other Times) -->
+                <div class="flex flex-row md:flex-col gap-3 w-full overflow-x-auto md:overflow-visible pb-2 md:pb-0" id="focus-sidebar">
+                    <!-- Sidebar items generated dynamically -->
+                </div>
+            </div>
+
+            <!-- Main Big Clock & Task -->
+            <div class="flex-grow glass-panel rounded-[3rem] p-8 md:p-12 flex flex-col justify-center items-center text-center relative overflow-hidden order-1 md:order-2 w-full shadow-2xl border-2 border-white/50">
+                <!-- Decorative background elements -->
+                <div class="absolute -top-20 -right-20 w-64 h-64 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-white/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div id="focus-clock" class="text-7xl md:text-[8rem] font-black mb-2 tracking-tighter drop-shadow-xl text-slate-800 dark:text-white tabular-nums" style="line-height: 1;">00:00:00</div>
+                
+                <div id="focus-period-badge" class="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-white/50 backdrop-blur-md border border-white/60 shadow-sm mb-10 mt-4">
+                    <span id="focus-period-icon" class="text-2xl">🌅</span>
+                    <span id="focus-period-name" class="text-xl font-bold tracking-wide">朝 (Morning)</span>
+                </div>
+
+                <!-- Input for Active Task -->
+                <div class="w-full max-w-2xl relative group">
+                    <input type="text" id="focus-input" class="w-full text-center bg-transparent border-b-4 border-slate-300 focus:border-pink-400 outline-none text-2xl md:text-4xl lg:text-5xl font-bold py-4 transition-colors placeholder-slate-400/50 text-slate-700" maxlength="20" placeholder="ตั้งใจจะทำอะไร?">
+                    
+                    <!-- Locked Message for Night -->
+                    <div id="focus-night-msg" class="hidden absolute inset-0 flex items-center justify-center bg-transparent text-3xl md:text-5xl font-black text-indigo-600 drop-shadow-md tracking-wider">
+                        เข้านอนพักผ่อน 💤
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 w-11/12 max-w-2xl glass-panel rounded-[2rem] p-4 flex flex-col sm:flex-row items-center justify-between gap-4 z-40 shadow-2xl transition-all">
+        
+        <div class="flex items-center gap-2 border-b sm:border-b-0 sm:border-r border-white/30 pb-3 sm:pb-0 sm:pr-4 w-full sm:w-auto">
+            <span class="text-sm font-bold opacity-80 whitespace-nowrap">Ambient Mode</span>
+        </div>
+
+        <div class="flex items-center justify-center gap-4 flex-grow">
+            <!-- Rain/Noise -->
+            <button id="btn-rain" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('rain')">🌧️</button>
+            <!-- Train -->
+            <button id="btn-train" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('train')">🚂</button>
+            <!-- Campfire -->
+            <button id="btn-fire" class="ambient-btn w-12 h-12 rounded-full bg-white/40 hover:bg-white/70 transition-all flex items-center justify-center text-xl shadow" onclick="toggleAmbient('fire')">🔥</button>
+        </div>
+
+        <div class="flex items-center gap-2 w-full sm:w-48 pl-2 sm:pl-4">
+            <span class="text-sm opacity-70">🔉</span>
+            <input type="range" id="volume-slider" min="0" max="100" value="50" class="w-full">
+            <span class="text-sm opacity-70">🔊</span>
+        </div>
+    </div>
+
+    <!-- Alarm Modal -->
+    <div id="modal-alarm" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="bg-white rounded-[2rem] p-8 max-w-sm w-11/12 shadow-2xl transform scale-90 transition-transform duration-500 text-center relative overflow-hidden" id="modal-alarm-content">
+            <div class="absolute -top-16 -left-16 w-32 h-32 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
+            <div class="absolute -bottom-16 -right-16 w-32 h-32 bg-sky-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
+            
+            <div class="relative z-10">
+                <div class="text-6xl mb-4 floating" id="alarm-icon">⏰</div>
+                <h2 class="text-2xl font-bold mb-2 text-slate-800" id="alarm-title">ได้เวลาเปลี่ยน Routine แล้ว!</h2>
+                <p class="text-slate-500 text-sm mb-6 font-medium" id="alarm-desc">เข้าสู่ช่วงเวลาใหม่ อย่าลืมทำตามแผนที่วางไว้นะ</p>
+                
+                <button id="btn-stop-alarm" class="w-full bg-gradient-to-r from-pink-400 to-purple-400 text-white font-bold py-3 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all">
+                    รับทราบ! (ปิดเสียง)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alarm Sound Settings Modal -->
+    <div id="modal-alarm-settings" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="bg-white/90 backdrop-blur-md rounded-[2rem] p-6 max-w-md w-11/12 shadow-2xl transform scale-90 transition-transform duration-500 relative overflow-hidden border border-white" id="modal-alarm-settings-content">
+            <h2 class="text-2xl font-bold mb-5 text-slate-800 flex items-center gap-2">🔔 ตั้งค่าเสียงแจ้งเตือน</h2>
+
+            <!-- Custom Alarm Toggle -->
+            <div class="flex items-center justify-between mb-5 p-3 bg-slate-100 rounded-2xl">
+                <div>
+                    <p class="font-bold text-slate-700 text-sm">Custom Alarm Sound</p>
+                    <p class="text-xs text-slate-500 mt-0.5">ใช้เสียงแจ้งเตือนของตัวเอง</p>
+                </div>
+                <button id="btn-toggle-custom-alarm" onclick="toggleCustomAlarm()" class="relative w-14 h-7 rounded-full transition-all duration-300 bg-slate-300 outline-none flex-shrink-0">
+                    <span id="custom-alarm-knob" class="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-all duration-300"></span>
+                </button>
+            </div>
+
+            <!-- Custom Sound Section -->
+            <div id="custom-alarm-section" class="hidden space-y-4 mb-5">
+                <!-- File Upload -->
+                <div>
+                    <label class="text-xs font-bold text-slate-600 mb-2 block">ไฟล์เสียง (MP3, WAV, OGG)</label>
+                    <label class="flex items-center gap-3 cursor-pointer bg-slate-100 hover:bg-slate-200 transition rounded-xl p-3 border-2 border-dashed border-slate-300 hover:border-blue-400">
+                        <span class="text-2xl">🎵</span>
+                        <div class="flex-grow min-w-0">
+                            <p id="alarm-file-name" class="text-sm font-bold text-slate-500 truncate">คลิกเพื่อเลือกไฟล์เสียง...</p>
+                        </div>
+                        <input type="file" id="alarm-file-input" accept="audio/*" class="hidden">
+                    </label>
+                </div>
+
+                <!-- Custom Volume Slider -->
+                <div>
+                    <label class="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                        <span>🔉 ระดับเสียง Custom Alarm</span>
+                        <span id="custom-alarm-volume-val">70%</span>
+                    </label>
+                    <input type="range" id="custom-alarm-volume" min="0" max="100" value="70" class="w-full accent-purple-400 outline-none">
+                </div>
+
+                <!-- Test Button -->
+                <button id="btn-test-custom-alarm" onclick="testCustomAlarm()" class="w-full bg-gradient-to-r from-purple-400 to-pink-400 text-white font-bold py-2.5 rounded-xl shadow hover:scale-[1.02] transition-all text-sm outline-none">
+                    ▶️ ทดสอบเสียง
+                </button>
+            </div>
+
+            <!-- Default Sound Section -->
+            <div id="default-alarm-section" class="space-y-4 mb-5">
+                <div>
+                    <label class="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                        <span>🔉 ระดับเสียง Default Alarm</span>
+                        <span id="default-alarm-volume-val">50%</span>
+                    </label>
+                    <input type="range" id="default-alarm-volume" min="0" max="100" value="50" class="w-full accent-emerald-400 outline-none">
+                </div>
+                <button id="btn-test-default-alarm" onclick="testDefaultAlarm()" class="w-full bg-gradient-to-r from-emerald-400 to-teal-400 text-white font-bold py-2.5 rounded-xl shadow hover:scale-[1.02] transition-all text-sm outline-none">
+                    ▶️ ทดสอบเสียง Default
+                </button>
+            </div>
+
+            <button id="btn-close-alarm-settings" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 transition-all shadow-md outline-none">
+                ปิดหน้าต่าง
+            </button>
+        </div>
+    </div>
+
+    <!-- Slideshow Settings Modal -->
+    <div id="modal-slideshow" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="bg-white/90 backdrop-blur-md rounded-[2rem] p-6 max-w-4xl w-11/12 shadow-2xl transform scale-90 transition-transform duration-500 relative overflow-hidden border border-white" id="modal-slideshow-content">
+            <h2 class="text-2xl font-bold mb-4 text-slate-800 flex items-center gap-2">🖼️ ตั้งค่าสไลด์โชว์</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                
+                <!-- Left Column: Image Manager -->
+                <div class="flex flex-col gap-4 md:border-r border-slate-200 md:pr-6">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-slate-700">อัปโหลดและจัดการรูปภาพ</h3>
+                        <label class="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-600 transition cursor-pointer shadow-md">
+                            + เพิ่มรูป
+                            <input type="file" id="ss-input-upload" multiple accept="image/*" class="hidden">
+                        </label>
+                    </div>
+                    
+                    <p class="text-[10px] text-slate-500 leading-tight">ลากที่สัญลักษณ์ <span class="font-bold">:::</span> เพื่อสลับลำดับรูปภาพ</p>
+                    
+                    <!-- Drag & Drop List -->
+                    <div id="ss-image-list" class="flex flex-col gap-2 overflow-y-auto max-h-[35vh] min-h-[200px] bg-slate-100 p-2 rounded-xl border border-slate-200 shadow-inner">
+                        <!-- Dynamic items will go here -->
+                    </div>
+
+                    <div class="flex justify-between items-center mt-auto pt-2">
+                        <p class="text-xs font-bold text-slate-500" id="ss-status-text">โหลตรูปแล้ว 0 ภาพ</p>
+                        <button id="ss-btn-clear" class="bg-red-100 text-red-500 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-200 transition">ลบทั้งหมด</button>
+                    </div>
+                </div>
+
+                <!-- Right Column: Settings -->
+                <div class="space-y-6">
+                    <h3 class="font-bold text-slate-700 mb-2">ตั้งค่าการแสดงผล</h3>
+                    
+                    <!-- Timer & Random -->
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="flex-1">
+                            <label class="text-xs font-bold text-slate-600 mb-1 block">เวลาต่อ 1 ภาพ (วินาที)</label>
+                            <div class="flex items-center bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                <button id="ss-btn-down" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 transition font-bold outline-none">-</button>
+                                <input type="number" id="ss-input-timer" value="10" min="1" class="w-full bg-transparent text-center font-bold outline-none">
+                                <button id="ss-btn-up" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 transition font-bold outline-none">+</button>
+                            </div>
+                        </div>
+                        <div class="flex-1 flex flex-col items-end justify-end pb-0.5">
+                            <label class="text-xs font-bold text-slate-600 mb-1 block text-right">สลับภาพแบบสุ่ม</label>
+                            <button id="ss-btn-random" class="w-full bg-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-bold transition outline-none">🔀 Random: OFF</button>
+                        </div>
+                    </div>
+
+                    <!-- Fade Speed -->
+                    <div>
+                        <label class="flex justify-between text-xs font-bold text-slate-600 mb-2">
+                            <span>ความเร็วเฟด (Fade Speed)</span>
+                            <span id="ss-fade-val">1.0s</span>
+                        </label>
+                        <input type="range" id="ss-slider-fade" min="0" max="5" step="0.5" value="1" class="w-full accent-blue-500 outline-none">
+                    </div>
+
+                    <div class="h-px w-full bg-slate-200 my-2"></div>
+
+                    <!-- Opacity Overlay & Color -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-xs font-bold text-slate-600">สีฟิลเตอร์ทับภาพ (Overlay Color)</label>
+                            <button id="ss-btn-color" class="bg-slate-800 text-white px-3 py-1 rounded-md text-xs font-bold transition shadow outline-none">สีดำ (Black)</button>
+                        </div>
+                        <label class="flex justify-between text-xs font-bold text-slate-600 mb-2 mt-3">
+                            <span>ความทึบของฟิลเตอร์ (Opacity)</span>
+                            <span id="ss-opacity-val">40%</span>
+                        </label>
+                        <input type="range" id="ss-slider-opacity" min="0" max="100" value="40" class="w-full accent-slate-800 outline-none">
+                    </div>
+                    
+                    <button id="btn-close-slideshow" class="w-full mt-4 bg-slate-800 text-white font-bold py-3 rounded-xl hover:bg-slate-900 transition-all shadow-md outline-none">
+                        ปิดหน้าต่าง
+                    </button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // --- Image Slideshow Engine (Using IndexedDB for local persistence) ---
+        const SS_DB_NAME = 'LovePlusSlideshowDB';
+        const SS_STORE = 'images';
+        
+        let slideData = []; // Stores Array of objects: { id, file, url }
+        let currentSlideIdx = 0;
+        let slideTimerId = null;
+        let activeBgId = 1;
+        
+        // Default Settings
+        let ssSettings = {
+            timer: 10,
+            random: false,
+            opacity: 40,
+            fadeSpeed: 1,
+            overlayColor: 'black'
+        };
+
+        // Initialize IndexedDB
+        function openSlideshowDB() {
+            return new Promise((resolve, reject) => {
+                const req = indexedDB.open(SS_DB_NAME, 1);
+                req.onupgradeneeded = e => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(SS_STORE)) {
+                        db.createObjectStore(SS_STORE, { autoIncrement: true });
+                    }
+                };
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = e => reject(e.target.error);
+            });
+        }
+
+        async function loadImagesFromDB() {
+            const db = await openSlideshowDB();
+            return new Promise(resolve => {
+                const tx = db.transaction(SS_STORE, 'readonly');
+                const store = tx.objectStore(SS_STORE);
+                const req = store.getAll();
+                req.onsuccess = () => {
+                    // Populate slideData array
+                    slideData = req.result.map(file => ({
+                        id: Math.random().toString(36).substr(2, 9), // Generate temporary unique ID
+                        file: file,
+                        url: URL.createObjectURL(file)
+                    }));
+                    resolve();
+                };
+            });
+        }
+
+        async function syncImagesToDB() {
+            const db = await openSlideshowDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(SS_STORE, 'readwrite');
+                const store = tx.objectStore(SS_STORE);
+                store.clear(); // Clear all
+                slideData.forEach(item => store.add(item.file)); // Add in new order
+                tx.oncomplete = resolve;
+                tx.onerror = reject;
+            });
+        }
+
+        async function clearImagesDB() {
+            slideData = [];
+            await syncImagesToDB();
+        }
+
+        // Apply visual settings to DOM
+        function applySlideshowSettings() {
+            // Save to LocalStorage
+            localStorage.setItem('lp_slideshow_settings', JSON.stringify(ssSettings));
+
+            // Overlay Opacity & Color
+            const overlay = document.getElementById('slideshow-overlay');
+            const rgb = ssSettings.overlayColor === 'black' ? '0,0,0' : '255,255,255';
+            overlay.style.backgroundColor = `rgba(${rgb}, ${ssSettings.opacity / 100})`;
+
+            // Render UI
+            document.getElementById('ss-input-timer').value = ssSettings.timer;
+            document.getElementById('ss-slider-fade').value = ssSettings.fadeSpeed;
+            document.getElementById('ss-fade-val').innerText = `${ssSettings.fadeSpeed}s`;
+            document.getElementById('ss-slider-opacity').value = ssSettings.opacity;
+            document.getElementById('ss-opacity-val').innerText = `${ssSettings.opacity}%`;
+
+            const btnRandom = document.getElementById('ss-btn-random');
+            if (ssSettings.random) {
+                btnRandom.classList.replace('bg-slate-200', 'bg-blue-500');
+                btnRandom.classList.replace('text-slate-600', 'text-white');
+                btnRandom.innerText = '🔀 Random: ON';
+            } else {
+                btnRandom.classList.replace('bg-blue-500', 'bg-slate-200');
+                btnRandom.classList.replace('text-white', 'text-slate-600');
+                btnRandom.innerText = '🔀 Random: OFF';
+            }
+
+            const btnColor = document.getElementById('ss-btn-color');
+            if (ssSettings.overlayColor === 'black') {
+                btnColor.classList.replace('bg-white', 'bg-slate-800');
+                btnColor.classList.replace('text-slate-800', 'text-white');
+                btnColor.innerText = 'สีดำ (Black)';
+            } else {
+                btnColor.classList.replace('bg-slate-800', 'bg-white');
+                btnColor.classList.replace('text-white', 'text-slate-800');
+                btnColor.innerText = 'สีขาว (White)';
+            }
+            
+            // Restart Timer if running
+            startSlideshowTimer();
+        }
+
+        function crossfadeSlide() {
+            if (slideData.length === 0) return;
+
+            // Determine next index
+            if (ssSettings.random && slideData.length > 1) {
+                let nextIdx = currentSlideIdx;
+                while (nextIdx === currentSlideIdx) {
+                    nextIdx = Math.floor(Math.random() * slideData.length);
+                }
+                currentSlideIdx = nextIdx;
+            } else {
+                currentSlideIdx = (currentSlideIdx + 1) % slideData.length;
+            }
+
+            const nextBgId = activeBgId === 1 ? 2 : 1;
+            const currentEl = document.getElementById(`slideshow-bg-${activeBgId}`);
+            const nextEl = document.getElementById(`slideshow-bg-${nextBgId}`);
+
+            // Apply Fade Speed
+            currentEl.style.transitionDuration = `${ssSettings.fadeSpeed}s`;
+            nextEl.style.transitionDuration = `${ssSettings.fadeSpeed}s`;
+
+            // Crossfade
+            nextEl.style.backgroundImage = `url('${slideData[currentSlideIdx].url}')`;
+            nextEl.style.opacity = 1;
+            currentEl.style.opacity = 0;
+
+            activeBgId = nextBgId;
+        }
+
+        function startSlideshowTimer() {
+            if (slideTimerId) clearInterval(slideTimerId);
+            if (slideData.length > 0) {
+                // Initial display if both hidden
+                const bg1 = document.getElementById('slideshow-bg-1');
+                const bg2 = document.getElementById('slideshow-bg-2');
+                if(bg1.style.opacity == 0 && bg2.style.opacity == 0) {
+                    bg1.style.backgroundImage = `url('${slideData[0].url}')`;
+                    bg1.style.opacity = 1;
+                    activeBgId = 1;
+                }
+                
+                // Safe guard fade speed vs timer (ensure fade isn't longer than timer)
+                const intervalMs = Math.max(ssSettings.timer * 1000, (ssSettings.fadeSpeed * 1000) + 100);
+                slideTimerId = setInterval(crossfadeSlide, intervalMs);
+            } else {
+                // Turn off
+                document.getElementById('slideshow-bg-1').style.opacity = 0;
+                document.getElementById('slideshow-bg-2').style.opacity = 0;
+            }
+        }
+
+        async function refreshSlideshowState() {
+            const statusTxt = document.getElementById('ss-status-text');
+            if (slideData.length > 0) {
+                statusTxt.innerText = `รูปภาพทั้งหมด: ${slideData.length} ภาพ`;
+                statusTxt.classList.replace('text-slate-500', 'text-blue-600');
+                startSlideshowTimer();
+            } else {
+                statusTxt.innerText = `ยังไม่มีรูปภาพ (ใช้พื้นหลังปกติ)`;
+                statusTxt.classList.replace('text-blue-600', 'text-slate-500');
+                if (slideTimerId) clearInterval(slideTimerId);
+                document.getElementById('slideshow-bg-1').style.opacity = 0;
+                document.getElementById('slideshow-bg-2').style.opacity = 0;
+            }
+            renderImageList();
+        }
+
+        // --- Drag and Drop List Rendering ---
+        let dragSrcEl = null;
+
+        function renderImageList() {
+            const list = document.getElementById('ss-image-list');
+            list.innerHTML = '';
+            
+            if (slideData.length === 0) {
+                list.innerHTML = '<div class="text-center text-slate-400 text-sm mt-10">ยังไม่ได้เพิ่มรูปภาพเลย</div>';
+                return;
+            }
+
+            slideData.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'drag-item flex items-center gap-3 bg-white p-2 rounded-lg border border-slate-200 shadow-sm transition-colors';
+                div.draggable = true;
+                div.dataset.id = item.id;
+                div.innerHTML = `
+                    <div class="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500 px-1 py-2 font-black tracking-widest leading-none" title="ลากเพื่อจัดลำดับ">:::</div>
+                    <div class="w-12 h-12 rounded-md bg-cover bg-center bg-slate-200 flex-shrink-0 border border-slate-100" style="background-image: url('${item.url}')"></div>
+                    <div class="flex-grow text-xs font-bold text-slate-600 truncate">รูปภาพที่ ${index + 1}</div>
+                    <button class="ss-btn-delete w-8 h-8 flex items-center justify-center rounded-lg text-red-300 hover:text-red-500 hover:bg-red-50 transition-colors text-lg outline-none" data-id="${item.id}">🗑️</button>
+                `;
+                list.appendChild(div);
+            });
+
+            attachDragEvents();
+
+            // Delete specific image
+            document.querySelectorAll('.ss-btn-delete').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    slideData = slideData.filter(img => img.id !== id);
+                    await syncImagesToDB();
+                    refreshSlideshowState();
+                });
+            });
+        }
+
+        function attachDragEvents() {
+            const items = document.querySelectorAll('.drag-item');
+            items.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragenter', handleDragEnter);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('dragleave', handleDragLeave);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+
+        function handleDragStart(e) {
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', this.dataset.id);
+            this.classList.add('opacity-50');
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault(); // Necessary to allow dropping
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            this.classList.add('border-blue-400', 'bg-blue-50');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('border-blue-400', 'bg-blue-50');
+        }
+
+        async function handleDrop(e) {
+            if (e.stopPropagation) e.stopPropagation();
+            
+            this.classList.remove('border-blue-400', 'bg-blue-50');
+            
+            if (dragSrcEl !== this) {
+                const draggedId = dragSrcEl.dataset.id;
+                const targetId = this.dataset.id;
+                
+                const draggedIndex = slideData.findIndex(item => item.id === draggedId);
+                const targetIndex = slideData.findIndex(item => item.id === targetId);
+                
+                // Reorder the array
+                const [removed] = slideData.splice(draggedIndex, 1);
+                slideData.splice(targetIndex, 0, removed);
+                
+                // Sync to DB & Re-render
+                await syncImagesToDB();
+                refreshSlideshowState();
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('opacity-50');
+            document.querySelectorAll('.drag-item').forEach(item => {
+                item.classList.remove('border-blue-400', 'bg-blue-50');
+            });
+        }
+
+
+        // -- Event Listeners for Slideshow Settings Modal --
+        document.getElementById('btn-slideshow').addEventListener('click', () => {
+            const modal = document.getElementById('modal-slideshow');
+            const content = document.getElementById('modal-slideshow-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+            content.classList.add('scale-100');
+        });
+
+        document.getElementById('btn-close-slideshow').addEventListener('click', () => {
+            const modal = document.getElementById('modal-slideshow');
+            const content = document.getElementById('modal-slideshow-content');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-90');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        document.getElementById('ss-input-upload').addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if(files.length > 0) {
+                // Add to array in memory
+                files.forEach(file => {
+                    slideData.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        file: file,
+                        url: URL.createObjectURL(file)
+                    });
+                });
+                await syncImagesToDB();
+                refreshSlideshowState();
+                e.target.value = ''; // reset
+            }
+        });
+
+        document.getElementById('ss-btn-clear').addEventListener('click', async () => {
+            if(confirm('ต้องการลบภาพสไลด์โชว์ทั้งหมดใช่หรือไม่?')) {
+                await clearImagesDB();
+                currentSlideIdx = 0;
+                refreshSlideshowState();
+            }
+        });
+
+        document.getElementById('ss-btn-up').addEventListener('click', () => {
+            ssSettings.timer = parseInt(document.getElementById('ss-input-timer').value) + 1;
+            applySlideshowSettings();
+        });
+        
+        document.getElementById('ss-btn-down').addEventListener('click', () => {
+            let val = parseInt(document.getElementById('ss-input-timer').value) - 1;
+            if (val < 1) val = 1;
+            ssSettings.timer = val;
+            applySlideshowSettings();
+        });
+
+        document.getElementById('ss-input-timer').addEventListener('change', (e) => {
+            let val = parseInt(e.target.value);
+            if(isNaN(val) || val < 1) val = 1;
+            ssSettings.timer = val;
+            applySlideshowSettings();
+        });
+
+        document.getElementById('ss-btn-random').addEventListener('click', () => {
+            ssSettings.random = !ssSettings.random;
+            applySlideshowSettings();
+        });
+
+        document.getElementById('ss-btn-color').addEventListener('click', () => {
+            ssSettings.overlayColor = ssSettings.overlayColor === 'black' ? 'white' : 'black';
+            applySlideshowSettings();
+        });
+
+        document.getElementById('ss-slider-opacity').addEventListener('input', (e) => {
+            ssSettings.opacity = e.target.value;
+            applySlideshowSettings();
+        });
+
+        document.getElementById('ss-slider-fade').addEventListener('input', (e) => {
+            ssSettings.fadeSpeed = e.target.value;
+            applySlideshowSettings();
+        });
+
+        // Initialize Slideshow
+        async function initSlideshow() {
+            // Load Settings
+            const savedSettings = localStorage.getItem('lp_slideshow_settings');
+            if (savedSettings) {
+                try { ssSettings = { ...ssSettings, ...JSON.parse(savedSettings) }; } catch(e){}
+            }
+            applySlideshowSettings();
+
+            // Load Images
+            await loadImagesFromDB();
+            refreshSlideshowState();
+        }
+
+    </script>
+
+    <script>
+        // --- Audio Engine Class (Procedural Audio generation) ---
+        class AudioEngine {
+            constructor() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.5;
+                this.masterGain.connect(this.ctx.destination);
+                
+                this.ambientNodes = {};
+                this.alarmInterval = null;
+                this.isAlarmPlaying = false;
+            }
+
+            resume() {
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+            }
+
+            setVolume(val) {
+                // val is 0-100
+                this.masterGain.gain.setTargetAtTime(val / 100, this.ctx.currentTime, 0.1);
+            }
+
+            createNoiseBuffer() {
+                const bufferSize = this.ctx.sampleRate * 2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                return buffer;
+            }
+
+            stopAmbient(type) {
+                if (this.ambientNodes[type]) {
+                    this.ambientNodes[type].source.stop();
+                    this.ambientNodes[type].source.disconnect();
+                    delete this.ambientNodes[type];
+                }
+            }
+
+            playRain() {
+                this.resume();
+                if(this.ambientNodes['rain']) return;
+                
+                const noiseSource = this.ctx.createBufferSource();
+                noiseSource.buffer = this.createNoiseBuffer();
+                noiseSource.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 800;
+
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0.8;
+
+                noiseSource.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                
+                noiseSource.start();
+                this.ambientNodes['rain'] = { source: noiseSource, gain: gain };
+            }
+
+            playTrain() {
+                this.resume();
+                if(this.ambientNodes['train']) return;
+
+                const noiseSource = this.ctx.createBufferSource();
+                noiseSource.buffer = this.createNoiseBuffer();
+                noiseSource.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 400;
+                filter.Q.value = 0.5;
+
+                const lfo = this.ctx.createOscillator();
+                lfo.type = 'square';
+                lfo.frequency.value = 3.5; 
+
+                const lfoGain = this.ctx.createGain();
+                lfoGain.gain.value = 0.6; 
+                lfo.connect(lfoGain);
+
+                const gain = this.ctx.createGain();
+                gain.gain.value = 0.5; 
+                
+                lfoGain.connect(gain.gain);
+
+                noiseSource.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+
+                noiseSource.start();
+                lfo.start();
+                this.ambientNodes['train'] = { source: noiseSource, lfo: lfo, gain: gain };
+            }
+
+            playFire() {
+                this.resume();
+                if(this.ambientNodes['fire']) return;
+
+                const noiseSource = this.ctx.createBufferSource();
+                noiseSource.buffer = this.createNoiseBuffer();
+                noiseSource.loop = true;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 200;
+
+                const gain = this.ctx.createGain();
+                gain.gain.value = 1.5;
+
+                noiseSource.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.masterGain);
+                noiseSource.start();
+
+                const crackleInterval = setInterval(() => {
+                    if(Math.random() > 0.6) {
+                        const osc = this.ctx.createOscillator();
+                        const oscGain = this.ctx.createGain();
+                        osc.type = 'square';
+                        osc.frequency.setValueAtTime(100 + Math.random()*500, this.ctx.currentTime);
+                        osc.frequency.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                        
+                        oscGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                        oscGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                        
+                        osc.connect(oscGain);
+                        oscGain.connect(this.masterGain);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 0.1);
+                    }
+                }, 100);
+
+                this.ambientNodes['fire'] = { source: noiseSource, gain: gain, interval: crackleInterval };
+            }
+
+            stopFireCrackle() {
+                if(this.ambientNodes['fire'] && this.ambientNodes['fire'].interval) {
+                    clearInterval(this.ambientNodes['fire'].interval);
+                }
+            }
+
+            playAlarm() {
+                this.resume();
+                if(this.isAlarmPlaying) return;
+                this.isAlarmPlaying = true;
+
+                const playBeep = () => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(1046.50, this.ctx.currentTime + 0.1);
+                    
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.5, this.ctx.currentTime + 0.05);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.25);
+                };
+
+                playBeep();
+                this.alarmInterval = setInterval(playBeep, 600);
+            }
+
+            stopAlarm() {
+                this.isAlarmPlaying = false;
+                if(this.alarmInterval) clearInterval(this.alarmInterval);
+            }
+        }
+
+        const audioApp = new AudioEngine();
+    </script>
+
+    <script>
+        // --- State ---
+        let currentAmbient = null;
+        let currentPeriod = null; 
+        let hasInitializedAudio = false;
+        let dbUnsubscribe = null;
+        let currentUser = null;
+        let debounceTimer;
+        let isFocusMode = false;
+
+        const periods = {
+            morning: { start: 5, end: 11, icon: '🌅', name: '朝 (เช้า)', color: 'lpMorning', themeClass: 'text-sky-600' }, 
+            afternoon: { start: 12, end: 14, icon: '☀️', name: '昼 (กลางวัน)', color: 'lpNoon', themeClass: 'text-pink-600' },
+            evening: { start: 15, end: 17, icon: '🌇', name: '夕方 (เย็น)', color: 'lpEvening', themeClass: 'text-orange-600' },
+            night: { start: 18, end: 20, icon: '🌃', name: '夜 (ค่ำ)', color: 'lpNight', themeClass: 'text-purple-600' },
+            deepnight: { start: 21, end: 4, icon: '🌙', name: '深夜 (ดึก - เข้านอน)', color: 'lpNight', themeClass: 'text-indigo-600', wrap: true }
+        };
+
+        // --- View Mode Toggle ---
+        document.getElementById('btn-toggle-view').addEventListener('click', () => {
+            isFocusMode = !isFocusMode;
+            const viewGrid = document.getElementById('view-grid');
+            const viewFocus = document.getElementById('view-focus');
+            const viewText = document.getElementById('view-text');
+            const viewIcon = document.getElementById('view-icon');
+            
+            const header = document.getElementById('main-header');
+            const headerTitle = document.getElementById('header-title');
+            const authContainer = document.getElementById('auth-container');
+            const btnAudio = document.getElementById('btn-enable-audio');
+            const btnSlideshow = document.getElementById('btn-slideshow'); // New Slideshow Button
+            const btnAlarmSettings = document.getElementById('btn-alarm-settings');
+
+            if (isFocusMode) {
+                // Switch to Focus
+                header.classList.remove('glass-panel', 'shadow-lg');
+                headerTitle.classList.add('opacity-0', 'pointer-events-none');
+                authContainer.classList.add('opacity-0', 'pointer-events-none');
+                btnAudio.classList.add('opacity-0', 'pointer-events-none');
+                btnSlideshow.classList.add('opacity-0', 'pointer-events-none');
+                btnAlarmSettings.classList.add('opacity-0', 'pointer-events-none');
+                
+                setTimeout(() => {
+                    headerTitle.classList.add('hidden');
+                    authContainer.classList.add('hidden');
+                    btnAudio.classList.add('hidden');
+                    btnSlideshow.classList.add('hidden');
+                    btnAlarmSettings.classList.add('hidden');
+                }, 300);
+
+                viewGrid.classList.add('opacity-0');
+                setTimeout(() => {
+                    viewGrid.classList.add('hidden');
+                    viewFocus.classList.remove('hidden');
+                    viewFocus.classList.add('flex');
+                    setTimeout(() => viewFocus.classList.remove('opacity-0'), 50);
+                }, 300);
+                viewText.innerText = 'Grid Mode';
+                viewIcon.innerText = '🗂️';
+                syncToFocusInput();
+                renderSidebar();
+            } else {
+                // Switch to Grid
+                header.classList.add('glass-panel', 'shadow-lg');
+                headerTitle.classList.remove('hidden');
+                authContainer.classList.remove('hidden');
+                btnSlideshow.classList.remove('hidden');
+                btnAlarmSettings.classList.remove('hidden');
+                if (!hasInitializedAudio) btnAudio.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    headerTitle.classList.remove('opacity-0', 'pointer-events-none');
+                    authContainer.classList.remove('opacity-0', 'pointer-events-none');
+                    btnSlideshow.classList.remove('opacity-0', 'pointer-events-none');
+                    btnAlarmSettings.classList.remove('opacity-0', 'pointer-events-none');
+                    if (!hasInitializedAudio) btnAudio.classList.remove('opacity-0', 'pointer-events-none');
+                }, 50);
+
+                viewFocus.classList.add('opacity-0');
+                setTimeout(() => {
+                    viewFocus.classList.add('hidden');
+                    viewFocus.classList.remove('flex');
+                    viewGrid.classList.remove('hidden');
+                    setTimeout(() => viewGrid.classList.remove('opacity-0'), 50);
+                }, 300);
+                viewText.innerText = 'Focus Mode';
+                viewIcon.innerText = '👁️';
+            }
+        });
+
+        // --- Input Sync Logic ---
+        function syncToFocusInput() {
+            if(!currentPeriod) return;
+            const focusInput = document.getElementById('focus-input');
+            const gridInput = document.getElementById(`text-${currentPeriod}`);
+            if(gridInput) focusInput.value = gridInput.value;
+        }
+
+        ['morning', 'afternoon', 'evening', 'night'].forEach(p => {
+            document.getElementById(`text-${p}`).addEventListener('input', (e) => {
+                if(currentPeriod === p) document.getElementById('focus-input').value = e.target.value;
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(saveRoutineData, 1000);
+            });
+        });
+
+        document.getElementById('focus-input').addEventListener('input', (e) => {
+            if(!currentPeriod || currentPeriod === 'deepnight') return;
+            document.getElementById(`text-${currentPeriod}`).value = e.target.value;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(saveRoutineData, 1000);
+        });
+
+
+        // --- UI Functions ---
+        function toggleActionBtn(selectedId) {
+            const teaBtn = document.getElementById('btn-action-tea');
+            const pawBtn = document.getElementById('btn-action-paw');
+            
+            const activeClasses = ['bg-green-200', 'border-green-400', 'shadow-[0_0_15px_rgba(74,222,128,0.6)]'];
+
+            teaBtn.classList.remove(...activeClasses);
+            pawBtn.classList.remove(...activeClasses);
+
+            const selectedBtn = document.getElementById(selectedId);
+            selectedBtn.classList.add(...activeClasses);
+            
+            selectedBtn.classList.add('scale-90');
+            setTimeout(() => selectedBtn.classList.remove('scale-90'), 150);
+        }
+        window.toggleActionBtn = toggleActionBtn; // Expose to HTML
+
+        function toggleAmbient(type) {
+            if(!hasInitializedAudio) initAudio();
+
+            document.querySelectorAll('.ambient-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-300', 'shadow-inner', 'scale-90');
+                btn.classList.add('bg-white/40');
+            });
+
+            if (currentAmbient === type) {
+                if(type==='fire') audioApp.stopFireCrackle();
+                audioApp.stopAmbient(type);
+                currentAmbient = null;
+            } else {
+                if(currentAmbient) {
+                    if(currentAmbient==='fire') audioApp.stopFireCrackle();
+                    audioApp.stopAmbient(currentAmbient);
+                }
+                
+                currentAmbient = type;
+                document.getElementById(`btn-${type}`).classList.replace('bg-white/40', 'bg-blue-300');
+                document.getElementById(`btn-${type}`).classList.add('shadow-inner', 'scale-90');
+                
+                if(type === 'rain') audioApp.playRain();
+                if(type === 'train') audioApp.playTrain();
+                if(type === 'fire') audioApp.playFire();
+            }
+        }
+        window.toggleAmbient = toggleAmbient; // Expose to HTML
+
+        document.getElementById('volume-slider').addEventListener('input', (e) => {
+            if(hasInitializedAudio) audioApp.setVolume(e.target.value);
+        });
+
+        document.getElementById('btn-enable-audio').addEventListener('click', () => {
+            initAudio();
+        });
+
+        function initAudio() {
+            if(!hasInitializedAudio) {
+                audioApp.resume();
+                hasInitializedAudio = true;
+                document.getElementById('btn-enable-audio').classList.add('hidden');
+            }
+        }
+
+        // --- Time Tracking & Routine Logic ---
+        function getPeriodFromHour(hour) {
+            for (const [key, p] of Object.entries(periods)) {
+                if (p.wrap) {
+                    if (hour >= p.start || hour <= p.end) return key;
+                } else {
+                    if (hour >= p.start && hour <= p.end) return key;
+                }
+            }
+            return 'morning'; 
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            
+            const displayTime = document.getElementById('current-time-display');
+            if(displayTime) displayTime.innerText = `${h}:${m}:${s}`;
+            
+            const focusClock = document.getElementById('focus-clock');
+            if(focusClock) focusClock.innerText = `${h}:${m}:${s}`;
+
+            const calculatedPeriod = getPeriodFromHour(now.getHours());
+            
+            if (calculatedPeriod !== currentPeriod) {
+                if (currentPeriod !== null) {
+                    triggerAlarm(calculatedPeriod);
+                }
+                changePeriodUI(calculatedPeriod);
+            }
+        }
+
+        function renderSidebar() {
+            const sidebar = document.getElementById('focus-sidebar');
+            sidebar.innerHTML = '';
+            
+            for (const [key, p] of Object.entries(periods)) {
+                if (key === currentPeriod) continue; 
+                
+                let textVal = '';
+                if(key === 'deepnight') textVal = 'เข้านอนพักผ่อน 💤';
+                else textVal = document.getElementById(`text-${key}`).value || 'ยังไม่ได้กำหนด...';
+
+                sidebar.innerHTML += `
+                    <div class="glass-panel rounded-2xl p-4 flex-shrink-0 w-48 md:w-full opacity-60 hover:opacity-100 transition-opacity border-l-4 border-slate-400">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xl">${p.icon}</span>
+                            <span class="text-xs font-bold text-slate-500">${p.name}</span>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700 truncate">${textVal}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function changePeriodUI(newPeriod) {
+            currentPeriod = newPeriod;
+            
+            const themePeriod = (newPeriod === 'deepnight') ? 'night' : newPeriod;
+            document.body.className = `theme-${themePeriod} min-h-screen text-slate-800 transition-colors duration-1000 p-4 md:p-8 flex flex-col pb-32`;
+            
+            document.querySelectorAll('.routine-card').forEach(card => {
+                card.classList.remove('active');
+                card.querySelector('.indicator').classList.add('hidden');
+            });
+            const activeCard = document.getElementById(`card-${newPeriod}`);
+            if(activeCard) {
+                activeCard.classList.add('active');
+                activeCard.querySelector('.indicator').classList.remove('hidden');
+            }
+
+            const periodData = periods[newPeriod];
+            document.getElementById('focus-period-icon').innerText = periodData.icon;
+            document.getElementById('focus-period-name').innerText = periodData.name;
+            document.getElementById('focus-period-name').className = `text-xl font-bold tracking-wide ${periodData.themeClass}`;
+            
+            const focusInput = document.getElementById('focus-input');
+            const nightMsg = document.getElementById('focus-night-msg');
+
+            if (newPeriod === 'deepnight') {
+                focusInput.classList.add('opacity-0', 'pointer-events-none');
+                nightMsg.classList.remove('hidden');
+            } else {
+                focusInput.classList.remove('opacity-0', 'pointer-events-none');
+                nightMsg.classList.add('hidden');
+                syncToFocusInput();
+            }
+
+            if(isFocusMode) renderSidebar();
+        }
+
+        // --- Alarm System ---
+        function triggerAlarm(newPeriodStr) {
+            const periodData = periods[newPeriodStr];
+            
+            document.getElementById('alarm-icon').innerText = periodData.icon;
+            document.getElementById('alarm-title').innerText = `เข้าสู่ช่วง${periodData.name}แล้ว!`;
+            
+            const modal = document.getElementById('modal-alarm');
+            const content = document.getElementById('modal-alarm-content');
+            
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+            content.classList.add('scale-100');
+
+            if(hasInitializedAudio) audioApp.playAlarm();
+        }
+
+        document.getElementById('btn-stop-alarm').addEventListener('click', () => {
+            const modal = document.getElementById('modal-alarm');
+            const content = document.getElementById('modal-alarm-content');
+            
+            content.classList.remove('scale-100');
+            content.classList.add('scale-90');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            
+            audioApp.stopAlarm();
+        });
+
+        // --- Firebase Data Sync ---
+        function saveRoutineData() {
+            if(!window.db || !currentUser) return;
+            
+            const data = {
+                morning: document.getElementById('text-morning').value,
+                afternoon: document.getElementById('text-afternoon').value,
+                evening: document.getElementById('text-evening').value,
+                night: document.getElementById('text-night').value,
+                updatedAt: new Date().toISOString()
+            };
+
+            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'routines', 'daily');
+            window.setDoc(docRef, data, { merge: true }).catch(err => console.error("Error saving:", err));
+        }
+
+        function loadRoutineData() {
+            if(!window.db || !currentUser) return;
+            
+            const docRef = window.doc(window.db, 'artifacts', window.appId, 'users', currentUser.uid, 'routines', 'daily');
+            
+            if(dbUnsubscribe) dbUnsubscribe();
+            
+            dbUnsubscribe = window.onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    if(document.activeElement.tagName !== 'INPUT') {
+                        if(data.morning !== undefined) document.getElementById('text-morning').value = data.morning;
+                        if(data.afternoon !== undefined) document.getElementById('text-afternoon').value = data.afternoon;
+                        if(data.evening !== undefined) document.getElementById('text-evening').value = data.evening;
+                        if(data.night !== undefined) document.getElementById('text-night').value = data.night;
+                        syncToFocusInput();
+                        if(isFocusMode) renderSidebar();
+                    }
+                }
+            }, (err) => console.error("Snapshot error", err));
+        }
+
+        // --- Auth Handlers ---
+        async function initAuth() {
+            if(!window.auth) {
+                document.getElementById('user-status').innerText = "Offline Mode";
+                return;
+            }
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await window.signInWithCustomToken(window.auth, __initial_auth_token);
+                } else {
+                    await window.signInAnonymously(window.auth);
+                }
+            } catch(e) { console.error("Auth init error:", e); }
+
+            window.onAuthStateChanged(window.auth, (user) => {
+                currentUser = user;
+                const statusEl = document.getElementById('user-status');
+                const btnLogin = document.getElementById('btn-login');
+                const btnLogout = document.getElementById('btn-logout');
+
+                if (user) {
+                    if (user.isAnonymous) {
+                        statusEl.innerText = "Guest (ข้อมูลเซฟชั่วคราว)";
+                        btnLogin.classList.remove('hidden');
+                        btnLogout.classList.add('hidden');
+                    } else {
+                        statusEl.innerText = `👋 ${user.displayName || 'User'}`;
+                        btnLogin.classList.add('hidden');
+                        btnLogout.classList.remove('hidden');
+                    }
+                    loadRoutineData();
+                } else {
+                    statusEl.innerText = "Not logged in";
+                    if(dbUnsubscribe) dbUnsubscribe();
+                }
+            });
+        }
+
+        document.getElementById('btn-login').addEventListener('click', async () => {
+            if(!window.auth) return;
+            try {
+                const provider = new window.GoogleAuthProvider();
+                await window.signInWithPopup(window.auth, provider);
+            } catch(e) { console.error("Login failed", e); }
+        });
+
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            if(!window.auth) return;
+            try {
+                await window.signOut(window.auth);
+                await window.signInAnonymously(window.auth);
+            } catch(e) { console.error("Logout failed", e); }
+        });
+
+        // --- Bootstrap ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            updateClock();
+            setInterval(updateClock, 1000);
+            await initSlideshow();
+            initAuth();
+        });
+
+    </script>
+    <script>
+        // --- Alarm Sound Settings ---
+        let customAlarmEnabled = false;
+        let customAlarmBuffer = null;
+        let customAlarmVolume = 0.7;
+        let defaultAlarmVolume = 0.5;
+        let customAlarmAudio = null; // HTMLAudioElement for custom sound
+        let testingAlarm = false;
+
+        function loadAlarmSettings() {
+            const saved = localStorage.getItem('lp_alarm_settings');
+            if (saved) {
+                try {
+                    const s = JSON.parse(saved);
+                    customAlarmEnabled = s.customEnabled || false;
+                    customAlarmVolume = s.customVolume !== undefined ? s.customVolume : 0.7;
+                    defaultAlarmVolume = s.defaultVolume !== undefined ? s.defaultVolume : 0.5;
+                } catch(e) {}
+            }
+            applyAlarmSettingsUI();
+        }
+
+        function saveAlarmSettings() {
+            localStorage.setItem('lp_alarm_settings', JSON.stringify({
+                customEnabled: customAlarmEnabled,
+                customVolume: customAlarmVolume,
+                defaultVolume: defaultAlarmVolume
+            }));
+        }
+
+        function applyAlarmSettingsUI() {
+            const knob = document.getElementById('custom-alarm-knob');
+            const toggle = document.getElementById('btn-toggle-custom-alarm');
+            const customSection = document.getElementById('custom-alarm-section');
+            const defaultSection = document.getElementById('default-alarm-section');
+
+            if (customAlarmEnabled) {
+                toggle.classList.replace('bg-slate-300', 'bg-purple-400');
+                knob.style.transform = 'translateX(28px)';
+                customSection.classList.remove('hidden');
+            } else {
+                toggle.classList.replace('bg-purple-400', 'bg-slate-300');
+                knob.style.transform = 'translateX(0)';
+                customSection.classList.add('hidden');
+            }
+
+            document.getElementById('custom-alarm-volume').value = customAlarmVolume * 100;
+            document.getElementById('custom-alarm-volume-val').innerText = `${Math.round(customAlarmVolume * 100)}%`;
+            document.getElementById('default-alarm-volume').value = defaultAlarmVolume * 100;
+            document.getElementById('default-alarm-volume-val').innerText = `${Math.round(defaultAlarmVolume * 100)}%`;
+        }
+
+        function toggleCustomAlarm() {
+            customAlarmEnabled = !customAlarmEnabled;
+            saveAlarmSettings();
+            applyAlarmSettingsUI();
+        }
+        window.toggleCustomAlarm = toggleCustomAlarm;
+
+        function testCustomAlarm() {
+            if (!customAlarmAudio) {
+                alert('กรุณาเลือกไฟล์เสียงก่อนนะ 🎵');
+                return;
+            }
+            stopTestAlarm();
+            customAlarmAudio.currentTime = 0;
+            customAlarmAudio.volume = customAlarmVolume;
+            customAlarmAudio.play();
+            testingAlarm = true;
+            const btn = document.getElementById('btn-test-custom-alarm');
+            btn.innerText = '⏹ หยุด';
+            btn.onclick = stopTestAlarm;
+        }
+        window.testCustomAlarm = testCustomAlarm;
+
+        function testDefaultAlarm() {
+            if (!hasInitializedAudio) {
+                audioApp.resume();
+                hasInitializedAudio = true;
+            }
+            stopTestAlarm();
+            // Temporarily override alarm volume
+            const origGain = audioApp.masterGain.gain.value;
+            audioApp.masterGain.gain.setTargetAtTime(defaultAlarmVolume, audioApp.ctx.currentTime, 0.05);
+            audioApp.playAlarm();
+            testingAlarm = true;
+            const btn = document.getElementById('btn-test-default-alarm');
+            btn.innerText = '⏹ หยุด';
+            btn.onclick = () => {
+                audioApp.stopAlarm();
+                audioApp.masterGain.gain.setTargetAtTime(origGain, audioApp.ctx.currentTime, 0.1);
+                btn.innerText = '▶️ ทดสอบเสียง Default';
+                btn.onclick = testDefaultAlarm;
+                testingAlarm = false;
+            };
+        }
+        window.testDefaultAlarm = testDefaultAlarm;
+
+        function stopTestAlarm() {
+            if (customAlarmAudio) { customAlarmAudio.pause(); customAlarmAudio.currentTime = 0; }
+            audioApp.stopAlarm();
+            const btn1 = document.getElementById('btn-test-custom-alarm');
+            const btn2 = document.getElementById('btn-test-default-alarm');
+            if (btn1) { btn1.innerText = '▶️ ทดสอบเสียง'; btn1.onclick = testCustomAlarm; }
+            if (btn2) { btn2.innerText = '▶️ ทดสอบเสียง Default'; btn2.onclick = testDefaultAlarm; }
+            testingAlarm = false;
+        }
+
+        // Alarm file upload
+        document.getElementById('alarm-file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            document.getElementById('alarm-file-name').innerText = file.name;
+            const url = URL.createObjectURL(file);
+            customAlarmAudio = new Audio(url);
+            customAlarmAudio.loop = false;
+        });
+
+        // Custom volume slider
+        document.getElementById('custom-alarm-volume').addEventListener('input', (e) => {
+            customAlarmVolume = e.target.value / 100;
+            document.getElementById('custom-alarm-volume-val').innerText = `${Math.round(customAlarmVolume * 100)}%`;
+            saveAlarmSettings();
+        });
+
+        // Default volume slider
+        document.getElementById('default-alarm-volume').addEventListener('input', (e) => {
+            defaultAlarmVolume = e.target.value / 100;
+            document.getElementById('default-alarm-volume-val').innerText = `${Math.round(defaultAlarmVolume * 100)}%`;
+            saveAlarmSettings();
+        });
+
+        // Open/Close modal
+        document.getElementById('btn-alarm-settings').addEventListener('click', () => {
+            const modal = document.getElementById('modal-alarm-settings');
+            const content = document.getElementById('modal-alarm-settings-content');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            content.classList.remove('scale-90');
+            content.classList.add('scale-100');
+        });
+
+        document.getElementById('btn-close-alarm-settings').addEventListener('click', () => {
+            stopTestAlarm();
+            const modal = document.getElementById('modal-alarm-settings');
+            const content = document.getElementById('modal-alarm-settings-content');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-90');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+        });
+
+        // Override playAlarm to support custom sound
+        const _origPlayAlarm = audioApp.playAlarm.bind(audioApp);
+        const _origStopAlarm = audioApp.stopAlarm.bind(audioApp);
+
+        audioApp.playAlarm = function() {
+            if (customAlarmEnabled && customAlarmAudio) {
+                customAlarmAudio.currentTime = 0;
+                customAlarmAudio.volume = customAlarmVolume;
+                customAlarmAudio.loop = true;
+                customAlarmAudio.play().catch(e => {
+                    // Fallback to default if autoplay blocked
+                    _origPlayAlarm();
+                });
+            } else {
+                // Use default alarm with its own volume
+                const savedMaster = this.masterGain.gain.value;
+                this.masterGain.gain.setTargetAtTime(defaultAlarmVolume, this.ctx.currentTime, 0.05);
+                this._alarmMasterSave = savedMaster;
+                _origPlayAlarm();
+            }
+        };
+
+        audioApp.stopAlarm = function() {
+            if (customAlarmAudio) {
+                customAlarmAudio.pause();
+                customAlarmAudio.currentTime = 0;
+                customAlarmAudio.loop = false;
+            }
+            if (this._alarmMasterSave !== undefined) {
+                this.masterGain.gain.setTargetAtTime(this._alarmMasterSave, this.ctx.currentTime, 0.1);
+                delete this._alarmMasterSave;
+            }
+            _origStopAlarm();
+        };
+
+        // Initialize alarm settings on load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAlarmSettings();
+        });
+    </script>
+
+</body>
+</html>
