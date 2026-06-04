@@ -105,8 +105,12 @@
         
         try {
             const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-                // Mock config for local testing if env vars missing
-                apiKey: "mock-key", projectId: "mock-project"
+                apiKey: "AIzaSyD-Vgayvdkl165ZO6kYCfv2OOfvZHqB59g",
+                authDomain: "necomart-github.firebaseapp.com",
+                projectId: "necomart-github",
+                storageBucket: "necomart-github.firebasestorage.app",
+                messagingSenderId: "181730496545",
+                appId: "1:181730496545:web:022815a30d6aafd4c65360"
             };
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
@@ -162,7 +166,7 @@
                         const canvas = document.createElement('canvas');
                         let width = img.width;
                         let height = img.height;
-                        const maxDimension = 1200; // Resize to max 1200px
+                        const maxDimension = 1080; // ปรับขนาดสูงสุดให้เล็กลงเป็น 1080px (ความละเอียดระดับ Full HD)
 
                         if (width > height && width > maxDimension) {
                             height *= maxDimension / width;
@@ -177,8 +181,8 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        // Compress to JPEG 70% quality
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                        // บีบอัดเป็น JPEG ที่คุณภาพ 60% เพื่อลดขนาดไฟล์ลงให้มากที่สุดโดยยังคงความคมชัดไว้
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
                         resolve(dataUrl);
                     };
                     img.onerror = () => reject("Image load error");
