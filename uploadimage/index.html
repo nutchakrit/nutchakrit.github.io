@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MediaCast (Client/Server)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* Custom Scrollbar for a cleaner look */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        /* Reels/Shorts Scroll Snap Styles */
+        .reels-container {
+            scroll-snap-type: y mandatory;
+            overflow-y: scroll;
+            height: calc(100vh - 80px); /* Adjust based on header */
+            -ms-overflow-style: none; /* IE and Edge */
+            scrollbar-width: none; /* Firefox */
+        }
+        .reels-container::-webkit-scrollbar {
+            display: none;
+        }
+        .reel-item {
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            height: calc(100vh - 80px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background-color: #000;
+            border-bottom: 1px solid #1f2937;
+        }
+
+        /* Carousel for multiple images */
+        .carousel-container {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            width: 100%;
+            height: 100%;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+            scroll-behavior: smooth;
+        }
+        .carousel-container::-webkit-scrollbar { display: none; }
+        .carousel-item {
+            flex: 0 0 100%;
+            width: 100%;
+            height: 100%;
+            scroll-snap-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .carousel-item img, .carousel-item video {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        /* Glassmorphism UI */
+        .glass {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans antialiased overflow-hidden selection:bg-purple-500 selection:text-white">
+
+    <!-- App Container -->
+    <div id="app" class="w-full h-screen flex flex-col relative">
+        <!-- Dynamic Content Injected Here -->
+    </div>
+
+    <!-- Custom Modal for Errors/Messages -->
+    <div id="custom-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-gray-800 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform duration-300" id="modal-content">
+            <h3 id="modal-title" class="text-xl font-bold mb-2 text-white">แจ้งเตือน</h3>
+            <p id="modal-message" class="text-gray-300 mb-6"></p>
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 rounded-lg font-medium transition-colors">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK (Modular) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // === System Variables & Firebase Init ===
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mediacast-app';
+        let app, auth, db, currentUser = null;
+        
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                // Mock config for local testing if env vars missing
+                apiKey: "mock-key", projectId: "mock-project"
+            };
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) {
+            console.error("Firebase init error:", e);
+            showModal("ข้อผิดพลาด", "ไม่สามารถเชื่อมต่อฐานข้อมูลได้");
+        }
+
+        // === Application State ===
+        let currentMode = null; // 'server' or 'client'
+        let roomCode = null;
+        let autoScrollReels = true;
+        let html5QrcodeScanner = null;
+        let serverUnsubscribe = null;
+        let uploadedFilesData = [];
+
+        // === DOM Elements ===
+        const appContainer = document.getElementById('app');
+
+        // === Utility Functions ===
+        window.showModal = (title, message) => {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        };
+
+        window.closeModal = () => {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        function generateRoomCode() {
+            return Math.floor(100000 + Math.random() * 900000).toString();
+        }
+
+        // Compress image to fit Firestore limits (< 1MB)
+        async function compressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDimension = 1200; // Resize to max 1200px
+
+                        if (width > height && width > maxDimension) {
+                            height *= maxDimension / width;
+                            width = maxDimension;
+                        } else if (height > maxDimension) {
+                            width *= maxDimension / height;
+                            height = maxDimension;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Compress to JPEG 70% quality
+                        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                        resolve(dataUrl);
+                    };
+                    img.onerror = () => reject("Image load error");
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => reject("File read error");
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // === Authentication ===
+        async function initAuth() {
+            return new Promise((resolve) => {
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        resolve(user);
+                    }
+                });
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    signInWithCustomToken(auth, __initial_auth_token).catch(e => {
+                        console.error("Custom auth failed, falling back to anon:", e);
+                        signInAnonymously(auth);
+                    });
+                } else {
+                    signInAnonymously(auth).catch(e => console.error("Anon auth failed:", e));
+                }
+            });
+        }
+
+        // === Views Rendering ===
+
+        function renderLanding() {
+            appContainer.innerHTML = `
+                <div class="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+                    <div class="text-center mb-12">
+                        <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600 mb-4 tracking-tight">MediaCast</h1>
+                        <p class="text-gray-300 text-lg">แชร์ภาพและวิดีโอขึ้นจอใหญ่แบบเรียลไทม์</p>
+                    </div>
+                    
+                    <div class="w-full max-w-md space-y-6">
+                        <button onclick="startServer()" class="w-full group relative flex items-center justify-center gap-4 bg-gray-800 hover:bg-gray-700 p-6 rounded-2xl shadow-xl border border-gray-700 transition-all overflow-hidden">
+                            <div class="absolute inset-0 bg-gradient-to-r from-purple-600/20 to-pink-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <i class="fas fa-desktop text-4xl text-purple-400"></i>
+                            <div class="text-left">
+                                <h2 class="text-2xl font-bold text-white">สร้างห้อง (จอหลัก)</h2>
+                                <p class="text-sm text-gray-400">เปิดจอนี้ไว้รับภาพจากเครื่องอื่น</p>
+                            </div>
+                        </button>
+
+                        <button onclick="startClient()" class="w-full group relative flex items-center justify-center gap-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 p-6 rounded-2xl shadow-xl transition-all transform hover:-translate-y-1">
+                            <i class="fas fa-mobile-alt text-4xl text-white"></i>
+                            <div class="text-left">
+                                <h2 class="text-2xl font-bold text-white">เข้าร่วม (ส่งภาพ)</h2>
+                                <p class="text-sm text-white/80">สแกนโค้ดหรือกรอกรหัสเพื่อส่งภาพ</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        window.startServer = async () => {
+            currentMode = 'server';
+            roomCode = generateRoomCode();
+            await initAuth();
+            renderServer();
+            startListeningToRoom();
+        };
+
+        function renderServer() {
+            const currentUrl = window.location.href.split('?')[0];
+            const joinUrl = `${currentUrl}?room=${roomCode}`;
+
+            appContainer.innerHTML = `
+                <!-- Server Header -->
+                <div class="glass h-20 w-full flex items-center justify-between px-6 z-10 shrink-0">
+                    <div class="flex items-center gap-4">
+                        <button onclick="goHome()" class="text-gray-400 hover:text-white transition-colors">
+                            <i class="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <div>
+                            <p class="text-xs text-purple-400 font-semibold uppercase tracking-wider">รหัสห้อง (Room Code)</p>
+                            <h2 class="text-3xl font-black tracking-widest leading-none">${roomCode.split('').join(' ')}</h2>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-6">
+                        <!-- Toggle Auto Scroll -->
+                        <div class="flex items-center gap-3 bg-gray-800/50 px-4 py-2 rounded-full border border-gray-700">
+                            <span class="text-sm font-medium text-gray-300">เลื่อนภาพใหม่อัตโนมัติ</span>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="auto-scroll-toggle" class="sr-only peer" checked onchange="toggleAutoScroll(this)">
+                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                            </label>
+                        </div>
+                        
+                        <!-- QR Code Container -->
+                        <div class="bg-white p-1 rounded-lg shadow-lg cursor-pointer hover:scale-105 transition-transform" title="คลิกเพื่อขยาย" onclick="showBigQR('${joinUrl}')">
+                            <div id="qrcode-small" class="w-12 h-12"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reels Container -->
+                <div id="reels-container" class="reels-container bg-black w-full relative">
+                    <!-- Placeholder when empty -->
+                    <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500">
+                        <i class="fas fa-qrcode text-6xl mb-4 opacity-50"></i>
+                        <p class="text-xl">รอรับภาพและวิดีโอจาก Client...</p>
+                        <p class="text-sm mt-2">สแกน QR Code หรือใช้รหัส ${roomCode} เพื่อเชื่อมต่อ</p>
+                    </div>
+                </div>
+            `;
+
+            // Generate small QR
+            setTimeout(() => {
+                new QRCode(document.getElementById("qrcode-small"), {
+                    text: joinUrl,
+                    width: 48,
+                    height: 48,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.L
+                });
+            }, 100);
+        }
+
+        window.toggleAutoScroll = (checkbox) => {
+            autoScrollReels = checkbox.checked;
+        };
+
+        window.showBigQR = (url) => {
+            const modalHtml = `
+                <div class="flex flex-col items-center justify-center p-4">
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">สแกนเพื่อเข้าร่วม</h3>
+                    <div id="qrcode-big" class="bg-white p-4 rounded-xl shadow-inner mb-6"></div>
+                    <p class="text-3xl font-black tracking-widest text-purple-600">${roomCode.split('').join(' ')}</p>
+                </div>
+            `;
+            
+            // Reusing custom modal but overriding content structure temporarily
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('modal-content');
+            
+            const originalContent = content.innerHTML;
+            content.className = "bg-white rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform duration-300";
+            content.innerHTML = modalHtml + `<div class="mt-4 text-center"><button onclick="closeBigQR()" class="bg-gray-200 text-gray-800 px-6 py-2 rounded-full font-bold hover:bg-gray-300">ปิด</button></div>`;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+                new QRCode(document.getElementById("qrcode-big"), {
+                    text: url, width: 250, height: 250, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.H
+                });
+            }, 10);
+
+            window.closeBigQR = () => {
+                modal.classList.add('opacity-0');
+                content.classList.add('scale-95');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    // Reset modal styles
+                    content.className = "bg-gray-800 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl transform scale-95 transition-transform duration-300";
+                    content.innerHTML = originalContent;
+                }, 300);
+            }
+        };
+
+        function startListeningToRoom() {
+            if (!currentUser) return;
+            const roomRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomCode}_media`);
+            
+            serverUnsubscribe = onSnapshot(roomRef, (snapshot) => {
+                const emptyState = document.getElementById('empty-state');
+                if (emptyState && snapshot.docs.length > 0) {
+                    emptyState.style.display = 'none';
+                }
+
+                // Rule 2: No complex queries, sort in memory
+                let allDocs = [];
+                snapshot.forEach(doc => allDocs.push({id: doc.id, ...doc.data()}));
+                allDocs.sort((a, b) => a.timestamp - b.timestamp);
+
+                const container = document.getElementById('reels-container');
+                if (!container) return;
+
+                // Simple approach: clear and re-render if count doesn't match to ensure correct order without complex DOM diffing
+                // For a real prod app we'd append only 'added' changes, but this is safer for in-memory sorting
+                
+                // Identify new items to trigger auto-scroll
+                const isNewItem = allDocs.length > uploadedFilesData.length;
+                uploadedFilesData = allDocs;
+
+                container.innerHTML = ''; // Clear current
+                allDocs.forEach((data, index) => {
+                    const el = createReelElement(data, index);
+                    container.appendChild(el);
+                });
+
+                if (isNewItem && autoScrollReels && allDocs.length > 0) {
+                    setTimeout(() => {
+                        const items = container.querySelectorAll('.reel-item');
+                        const lastItem = items[items.length - 1];
+                        if (lastItem) lastItem.scrollIntoView({ behavior: 'smooth' });
+                    }, 100);
+                }
+            }, (error) => {
+                console.error("Firestore listen error:", error);
+            });
+        }
+
+        function createReelElement(data, postIndex) {
+            const div = document.createElement('div');
+            div.className = 'reel-item';
+            
+            const mediaList = data.media || [];
+            
+            if (mediaList.length === 1) {
+                // Single Media
+                const item = mediaList[0];
+                if (item.type.startsWith('video/')) {
+                    div.innerHTML = `<video src="${item.data}" controls autoplay loop muted class="max-w-full max-h-full object-contain"></video>`;
+                } else {
+                    div.innerHTML = `<img src="${item.data}" class="max-w-full max-h-full object-contain shadow-2xl">`;
+                }
+            } else if (mediaList.length > 1) {
+                // Multiple Media (Carousel)
+                let carouselHtml = `<div class="carousel-container" id="carousel-${postIndex}">`;
+                mediaList.forEach(item => {
+                    carouselHtml += `<div class="carousel-item">`;
+                    if (item.type.startsWith('video/')) {
+                        carouselHtml += `<video src="${item.data}" controls loop class="max-w-full max-h-full object-contain"></video>`;
+                    } else {
+                        carouselHtml += `<img src="${item.data}" class="max-w-full max-h-full object-contain shadow-2xl">`;
+                    }
+                    carouselHtml += `</div>`;
+                });
+                carouselHtml += `</div>`;
+                
+                // Navigation Buttons
+                carouselHtml += `
+                    <button onclick="scrollCarousel('carousel-${postIndex}', -1)" class="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-all z-10 border border-white/20">
+                        <i class="fas fa-chevron-left text-xl"></i>
+                    </button>
+                    <button onclick="scrollCarousel('carousel-${postIndex}', 1)" class="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/80 text-white w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-sm transition-all z-10 border border-white/20">
+                        <i class="fas fa-chevron-right text-xl"></i>
+                    </button>
+                    
+                    <!-- Pagination Dots Overlay -->
+                    <div class="absolute bottom-6 left-0 right-0 flex justify-center gap-2 z-10 pointer-events-none">
+                        ${mediaList.map((_, i) => `<div class="w-2 h-2 rounded-full bg-white/50 ${i===0?'bg-white':''}"></div>`).join('')}
+                    </div>
+                `;
+                div.innerHTML = carouselHtml;
+            } else {
+                div.innerHTML = `<div class="text-gray-500">ไม่มีสื่อ</div>`;
+            }
+
+            // Uploader info overlay
+            const infoOverlay = document.createElement('div');
+            infoOverlay.className = "absolute bottom-6 left-6 bg-black/40 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 z-10";
+            infoOverlay.innerHTML = `
+                <p class="text-sm text-gray-300 flex items-center gap-2">
+                    <i class="fas fa-user-circle"></i> User_${data.senderId.substring(0,4)}
+                </p>
+                <p class="text-xs text-gray-500">${new Date(data.timestamp).toLocaleTimeString('th-TH')}</p>
+            `;
+            div.appendChild(infoOverlay);
+
+            return div;
+        }
+
+        window.scrollCarousel = (id, direction) => {
+            const container = document.getElementById(id);
+            if (container) {
+                const scrollAmount = container.clientWidth * direction;
+                container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                // Note: updating dots status is complex without scroll listeners, keeping simple for this demo
+            }
+        };
+
+        // === Client Views ===
+
+        window.startClient = () => {
+            currentMode = 'client';
+            renderClientLogin();
+        };
+
+        function renderClientLogin() {
+            appContainer.innerHTML = `
+                <div class="flex-1 flex flex-col bg-gray-900">
+                    <div class="glass p-4 flex items-center gap-4">
+                        <button onclick="goHome()" class="text-gray-400 hover:text-white p-2">
+                            <i class="fas fa-arrow-left text-xl"></i>
+                        </button>
+                        <h2 class="text-xl font-bold">เข้าร่วมห้อง</h2>
+                    </div>
+
+                    <div class="flex-1 flex flex-col items-center justify-center p-6 space-y-8">
+                        <!-- Code Input -->
+                        <div class="w-full max-w-xs space-y-4">
+                            <label class="block text-center text-gray-400 text-sm font-medium">กรอกรหัส 6 หลักที่แสดงบนหน้าจอหลัก</label>
+                            <div class="flex justify-center gap-2" id="pin-inputs">
+                                ${[1,2,3,4,5,6].map(i => `
+                                    <input type="text" maxlength="1" data-index="${i-1}" class="w-12 h-14 text-center text-2xl font-bold bg-gray-800 border-2 border-gray-700 rounded-xl focus:border-purple-500 focus:outline-none transition-colors pin-digit" inputmode="numeric">
+                                `).join('')}
+                            </div>
+                            <button onclick="joinWithCode()" class="w-full py-4 mt-6 bg-purple-600 hover:bg-purple-700 rounded-xl font-bold text-lg shadow-lg shadow-purple-900/50 transition-colors">
+                                เข้าร่วม
+                            </button>
+                        </div>
+
+                        <div class="flex items-center w-full max-w-xs">
+                            <div class="h-px bg-gray-700 flex-1"></div>
+                            <span class="px-4 text-gray-500 text-sm">หรือ</span>
+                            <div class="h-px bg-gray-700 flex-1"></div>
+                        </div>
+
+                        <!-- QR Scanner Trigger -->
+                        <button onclick="startScanner()" class="w-full max-w-xs flex items-center justify-center gap-3 py-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl font-medium transition-colors">
+                            <i class="fas fa-qrcode text-xl text-purple-400"></i>
+                            สแกน QR Code
+                        </button>
+                    </div>
+
+                    <!-- Scanner Container (Hidden by default) -->
+                    <div id="scanner-container" class="absolute inset-0 bg-black z-50 hidden flex-col">
+                        <div class="p-4 flex justify-between items-center bg-gray-900">
+                            <h3 class="font-bold">สแกน QR Code</h3>
+                            <button onclick="stopScanner()" class="text-gray-400 p-2"><i class="fas fa-times text-xl"></i></button>
+                        </div>
+                        <div id="reader" class="flex-1 w-full bg-black"></div>
+                    </div>
+                </div>
+            `;
+
+            // Auto-focus and auto-advance logic for PIN inputs
+            setTimeout(() => {
+                const inputs = document.querySelectorAll('.pin-digit');
+                inputs.forEach((input, idx) => {
+                    input.addEventListener('input', function(e) {
+                        this.value = this.value.replace(/[^0-9]/g, ''); // Numbers only
+                        if (this.value !== '') {
+                            if (idx < inputs.length - 1) inputs[idx + 1].focus();
+                            else if (idx === inputs.length - 1) joinWithCode(); // Auto join on last digit
+                        }
+                    });
+                    input.addEventListener('keydown', function(e) {
+                        if (e.key === 'Backspace' && this.value === '' && idx > 0) {
+                            inputs[idx - 1].focus();
+                        }
+                    });
+                });
+                if(inputs[0]) inputs[0].focus();
+            }, 100);
+        }
+
+        window.startScanner = () => {
+            document.getElementById('scanner-container').classList.remove('hidden');
+            document.getElementById('scanner-container').classList.add('flex');
+            
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrcodeScanner.start({ facingMode: "environment" }, config,
+                (decodedText) => {
+                    // Success callback
+                    stopScanner();
+                    // Extract room code from URL if it's a URL
+                    try {
+                        const url = new URL(decodedText);
+                        const code = url.searchParams.get('room');
+                        if (code && code.length === 6) {
+                            joinRoom(code);
+                        } else {
+                            showModal("รูปแบบไม่ถูกต้อง", "QR Code นี้ไม่ใช่ของระบบ MediaCast");
+                        }
+                    } catch (e) {
+                        // If it's just text
+                        if(decodedText.length === 6 && !isNaN(decodedText)) {
+                            joinRoom(decodedText);
+                        } else {
+                             showModal("รูปแบบไม่ถูกต้อง", "ไม่พบรหัสห้องใน QR Code");
+                        }
+                    }
+                },
+                (errorMessage) => {
+                    // Parse errors ignored
+                }
+            ).catch(err => {
+                stopScanner();
+                showModal("ข้อผิดพลาด", "ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง");
+            });
+        };
+
+        window.stopScanner = () => {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    html5QrcodeScanner.clear();
+                }).catch(e => console.error(e));
+            }
+            document.getElementById('scanner-container').classList.add('hidden');
+            document.getElementById('scanner-container').classList.remove('flex');
+        };
+
+        window.joinWithCode = () => {
+            const inputs = document.querySelectorAll('.pin-digit');
+            let code = Array.from(inputs).map(i => i.value).join('');
+            if (code.length === 6) {
+                joinRoom(code);
+            } else {
+                showModal("ข้อมูลไม่ครบ", "กรุณากรอกรหัสให้ครบ 6 หลัก");
+            }
+        };
+
+        async function joinRoom(code) {
+            roomCode = code;
+            await initAuth();
+            renderClientUploader();
+        }
+
+        function renderClientUploader() {
+            appContainer.innerHTML = `
+                <div class="flex-1 flex flex-col bg-gray-900 h-screen">
+                    <!-- Header -->
+                    <div class="glass p-4 flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-3">
+                            <div class="w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.7)] animate-pulse"></div>
+                            <span class="font-medium">เชื่อมต่อแล้ว</span>
+                        </div>
+                        <div class="bg-gray-800 px-3 py-1 rounded-lg border border-gray-700">
+                            <span class="text-xs text-gray-400 mr-1">ห้อง</span>
+                            <span class="font-mono font-bold text-purple-400">${roomCode}</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Upload Area -->
+                    <div class="flex-1 flex flex-col items-center justify-center p-6">
+                        
+                        <input type="file" id="media-input" multiple accept="image/*,video/mp4,video/quicktime,image/gif" class="hidden" onchange="handleFilesSelect(event)">
+                        
+                        <label for="media-input" class="w-full max-w-sm aspect-square border-2 border-dashed border-gray-600 rounded-3xl flex flex-col items-center justify-center cursor-pointer hover:border-purple-500 hover:bg-gray-800/50 transition-all group relative overflow-hidden">
+                            <div id="upload-placeholder" class="flex flex-col items-center pointer-events-none">
+                                <div class="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                                    <i class="fas fa-plus text-3xl text-purple-400"></i>
+                                </div>
+                                <h3 class="text-xl font-bold mb-2">เลือกรูปภาพ / วิดีโอ</h3>
+                                <p class="text-gray-500 text-sm text-center px-4">รองรับรูปภาพหลายไฟล์<br>วิดีโอ/GIF ขนาดไม่เกิน 800KB</p>
+                            </div>
+
+                            <!-- Preview Overlay -->
+                            <div id="preview-container" class="absolute inset-0 bg-gray-900 hidden flex-col p-4">
+                                <div class="flex-1 overflow-y-auto w-full grid grid-cols-2 gap-2" id="preview-grid">
+                                    <!-- Previews go here -->
+                                </div>
+                                <div class="mt-4 flex gap-2 w-full pt-2 border-t border-gray-800">
+                                    <button class="flex-1 py-3 bg-gray-800 rounded-xl font-medium" onclick="event.preventDefault(); document.getElementById('media-input').value=''; resetPreview();">ยกเลิก</button>
+                                    <button class="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-xl font-bold shadow-lg" onclick="event.preventDefault(); uploadSelectedFiles()">ส่งขึ้นจอ</button>
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="p-6 text-center shrink-0">
+                        <button onclick="goHome()" class="text-gray-500 hover:text-white underline text-sm">ออกจากการเชื่อมต่อ</button>
+                    </div>
+                </div>
+
+                <!-- Loading Overlay -->
+                <div id="loading-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex-col items-center justify-center">
+                    <div class="w-16 h-16 border-4 border-gray-700 border-t-purple-500 rounded-full animate-spin mb-4"></div>
+                    <p class="text-lg font-medium animate-pulse" id="loading-text">กำลังส่งข้อมูล...</p>
+                </div>
+            `;
+        }
+
+        let selectedFiles = [];
+
+        window.handleFilesSelect = (event) => {
+            selectedFiles = Array.from(event.target.files);
+            if (selectedFiles.length === 0) return;
+
+            // Check file sizes
+            const maxVideoSize = 800 * 1024; // 800KB due to Firestore limits
+            let hasLargeVideo = false;
+            
+            selectedFiles.forEach(file => {
+                if (file.type.startsWith('video/') && file.size > maxVideoSize) {
+                    hasLargeVideo = true;
+                }
+            });
+
+            if (hasLargeVideo) {
+                showModal("ไฟล์ขนาดใหญ่เกินไป", "วิดีโอต้องมีขนาดไม่เกิน 800KB เนื่องจากข้อจำกัดของระบบ กรุณาเลือกไฟล์ที่เล็กลงหรือเลือกเฉพาะรูปภาพ");
+                document.getElementById('media-input').value = '';
+                selectedFiles = [];
+                return;
+            }
+
+            document.getElementById('upload-placeholder').classList.add('hidden');
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.classList.remove('hidden');
+            previewContainer.classList.add('flex');
+            
+            const grid = document.getElementById('preview-grid');
+            grid.innerHTML = '';
+
+            selectedFiles.forEach(file => {
+                const url = URL.createObjectURL(file);
+                const item = document.createElement('div');
+                item.className = 'relative aspect-square rounded-lg overflow-hidden bg-gray-800';
+                
+                if (file.type.startsWith('video/')) {
+                    item.innerHTML = `<video src="${url}" class="w-full h-full object-cover"></video><div class="absolute inset-0 flex items-center justify-center bg-black/20"><i class="fas fa-play text-white text-xl"></i></div>`;
+                } else {
+                    item.innerHTML = `<img src="${url}" class="w-full h-full object-cover">`;
+                }
+                grid.appendChild(item);
+            });
+        };
+
+        window.resetPreview = () => {
+            selectedFiles = [];
+            document.getElementById('upload-placeholder').classList.remove('hidden');
+            const previewContainer = document.getElementById('preview-container');
+            previewContainer.classList.add('hidden');
+            previewContainer.classList.remove('flex');
+        };
+
+        window.uploadSelectedFiles = async () => {
+            if (selectedFiles.length === 0 || !currentUser) return;
+
+            const loading = document.getElementById('loading-overlay');
+            const loadingText = document.getElementById('loading-text');
+            loading.classList.remove('hidden');
+            loading.classList.add('flex');
+
+            try {
+                const mediaDataList = [];
+                
+                for (let i = 0; i < selectedFiles.length; i++) {
+                    const file = selectedFiles[i];
+                    loadingText.innerText = `กำลังประมวลผลไฟล์ที่ ${i + 1}/${selectedFiles.length}...`;
+                    
+                    let dataUrl;
+                    if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+                        // Compress images before sending
+                        dataUrl = await compressImage(file);
+                    } else {
+                        // Videos and GIFs read directly (size already checked)
+                        dataUrl = await fileToBase64(file);
+                    }
+
+                    mediaDataList.push({
+                        type: file.type,
+                        data: dataUrl
+                    });
+                }
+
+                loadingText.innerText = `กำลังส่งข้อมูล...`;
+
+                // Firestore structure
+                const payload = {
+                    timestamp: Date.now(),
+                    senderId: currentUser.uid,
+                    media: mediaDataList
+                };
+
+                const roomRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomCode}_media`);
+                await addDoc(roomRef, payload);
+
+                // Success
+                loading.classList.add('hidden');
+                loading.classList.remove('flex');
+                
+                // Show success feedback
+                const btn = document.querySelector('button[onclick="event.preventDefault(); uploadSelectedFiles()"]');
+                const origText = btn.innerText;
+                const origBg = btn.className;
+                btn.innerText = "ส่งสำเร็จ! ✓";
+                btn.className = "flex-1 py-3 bg-green-500 rounded-xl font-bold shadow-lg text-white transition-colors";
+                
+                setTimeout(() => {
+                    btn.innerText = origText;
+                    btn.className = origBg;
+                    resetPreview();
+                    document.getElementById('media-input').value = '';
+                }, 2000);
+
+            } catch (error) {
+                console.error("Upload error:", error);
+                loading.classList.add('hidden');
+                loading.classList.remove('flex');
+                showModal("เกิดข้อผิดพลาด", "ไม่สามารถส่งไฟล์ได้ กรุณาลองใหม่อีกครั้ง");
+            }
+        };
+
+        window.goHome = () => {
+            if (serverUnsubscribe) {
+                serverUnsubscribe();
+                serverUnsubscribe = null;
+            }
+            if (html5QrcodeScanner) {
+                stopScanner();
+            }
+            currentMode = null;
+            roomCode = null;
+            renderLanding();
+        };
+
+        // Check for room code in URL on load
+        window.onload = () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialRoom = urlParams.get('room');
+            if (initialRoom && initialRoom.length === 6) {
+                joinRoom(initialRoom);
+            } else {
+                renderLanding();
+            }
+        };
+
+    </script>
+</body>
+</html>
