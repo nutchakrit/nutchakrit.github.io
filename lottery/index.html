@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ตรวจสลากกินแบ่งรัฐบาลด้วย QR Code</title>
+    
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load Google Fonts (Prompt for Thai) -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Load FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Load HTML5 QR Code Library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom styles for the QR reader overlay to make it look modern */
+        #reader {
+            border-radius: 1rem;
+            overflow: hidden;
+            border: none !important;
+            box-shadow: inset 0 0 0 2px #3b82f6;
+        }
+        #reader video {
+            object-fit: cover;
+            border-radius: 1rem;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800 flex flex-col relative pb-10">
+
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white p-6 rounded-b-3xl shadow-lg sticky top-0 z-10">
+        <div class="max-w-md mx-auto flex items-center justify-center gap-3">
+            <i class="fa-solid fa-ticket text-3xl"></i>
+            <h1 class="text-2xl font-bold tracking-wide">สแกนตรวจหวย</h1>
+        </div>
+        <p class="text-center text-blue-100 text-sm mt-2" id="periodDisplay">กำลังโหลดข้อมูลงวดล่าสุด...</p>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 w-full max-w-md mx-auto px-4 mt-6 flex flex-col gap-6 relative z-0">
+
+        <!-- Scanner Card -->
+        <section class="bg-white p-5 rounded-2xl shadow-md border border-gray-100 text-center">
+            <h2 class="text-lg font-semibold mb-4 text-gray-700">
+                <i class="fa-solid fa-camera mr-2 text-blue-500"></i>สแกน QR Code บนสลาก
+            </h2>
+            
+            <!-- Camera Viewfinder -->
+            <div id="reader" class="w-full bg-black aspect-square flex items-center justify-center relative mb-4">
+                <div id="readerPlaceholder" class="text-white text-center p-6">
+                    <i class="fa-solid fa-qrcode text-5xl mb-3 opacity-50"></i>
+                    <p class="text-sm opacity-80">กดปุ่มด้านล่างเพื่อเปิดกล้อง</p>
+                </div>
+            </div>
+
+            <!-- Scanner Controls -->
+            <button id="startScanBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition shadow-md flex justify-center items-center gap-2">
+                <i class="fa-solid fa-play"></i> เปิดกล้องสแกน
+            </button>
+            <button id="stopScanBtn" class="hidden w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-xl transition shadow-md flex justify-center items-center gap-2">
+                <i class="fa-solid fa-stop"></i> ปิดกล้อง
+            </button>
+        </section>
+
+        <!-- Divider -->
+        <div class="flex items-center text-gray-400 text-sm">
+            <div class="flex-1 border-t border-gray-300"></div>
+            <span class="px-3">หรือกรอกตัวเลข</span>
+            <div class="flex-1 border-t border-gray-300"></div>
+        </div>
+
+        <!-- Manual Input Card -->
+        <section class="bg-white p-5 rounded-2xl shadow-md border border-gray-100 flex gap-2">
+            <input type="tel" id="manualInput" maxlength="6" placeholder="กรอกเลข 6 หลัก" class="flex-1 bg-gray-50 border border-gray-200 text-gray-800 text-lg rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center tracking-widest font-semibold">
+            <button id="checkManualBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 rounded-xl font-semibold transition shadow-sm">
+                ตรวจ
+            </button>
+        </section>
+
+        <!-- Result Display Section (Hidden by default) -->
+        <section id="resultSection" class="hidden bg-white p-6 rounded-2xl shadow-lg border-2 border-dashed border-gray-300 text-center transform transition-all duration-300 scale-95 opacity-0">
+            <h3 class="text-gray-500 text-sm font-medium uppercase tracking-wider mb-1">ผลการตรวจรางวัล</h3>
+            <div id="scannedNumberDisplay" class="text-4xl font-bold text-gray-800 tracking-[0.2em] mb-4">------</div>
+            
+            <div id="prizeStatusBox" class="py-4 px-2 rounded-xl text-lg font-bold flex flex-col items-center justify-center gap-2 min-h-[100px]">
+                <!-- Result will be injected here -->
+            </div>
+            
+            <button id="scanAgainBtn" class="mt-5 text-blue-600 font-semibold text-sm hover:underline flex items-center justify-center gap-1 mx-auto">
+                <i class="fa-solid fa-rotate-right"></i> ตรวจใบอื่นต่อ
+            </button>
+        </section>
+
+    </main>
+
+    <!-- Custom Modal Overlay (Replaces alert) -->
+    <div id="customModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center px-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-300" id="modalContent">
+            <div class="text-center">
+                <div id="modalIcon" class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
+                    <i class="fa-solid fa-info text-2xl text-blue-600"></i>
+                </div>
+                <h3 id="modalTitle" class="text-xl font-bold text-gray-900 mb-2">Title</h3>
+                <p id="modalMessage" class="text-gray-500 text-sm mb-6">Message goes here.</p>
+                <button id="closeModalBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition">
+                    ตกลง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        let html5QrCode;
+        let isScanning = false;
+        let lotteryData = null; // Will hold the fetched data
+
+        // --- DOM Elements ---
+        const startScanBtn = document.getElementById('startScanBtn');
+        const stopScanBtn = document.getElementById('stopScanBtn');
+        const readerPlaceholder = document.getElementById('readerPlaceholder');
+        const manualInput = document.getElementById('manualInput');
+        const checkManualBtn = document.getElementById('checkManualBtn');
+        const resultSection = document.getElementById('resultSection');
+        const scannedNumberDisplay = document.getElementById('scannedNumberDisplay');
+        const prizeStatusBox = document.getElementById('prizeStatusBox');
+        const scanAgainBtn = document.getElementById('scanAgainBtn');
+        const periodDisplay = document.getElementById('periodDisplay');
+        
+        // Modal Elements
+        const modal = document.getElementById('customModal');
+        const modalContent = document.getElementById('modalContent');
+        const modalIcon = document.getElementById('modalIcon');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+
+        // --- Utility: Custom Modal Function ---
+        function showModal(title, message, type = 'info') {
+            modalTitle.innerText = title;
+            modalMessage.innerText = message;
+            
+            // Icon styling based on type
+            if (type === 'error') {
+                modalIcon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4';
+                modalIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-2xl text-red-600"></i>';
+                closeModalBtn.className = 'w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-xl transition';
+            } else if (type === 'success') {
+                modalIcon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4';
+                modalIcon.innerHTML = '<i class="fa-solid fa-check text-2xl text-green-600"></i>';
+                closeModalBtn.className = 'w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition';
+            } else {
+                modalIcon.className = 'mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4';
+                modalIcon.innerHTML = '<i class="fa-solid fa-info text-2xl text-blue-600"></i>';
+                closeModalBtn.className = 'w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition';
+            }
+
+            modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10);
+        }
+
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        });
+
+        // --- STREAMING_CHUNK:Implementing the GLO API fetch logic... ---
+        // Fetch Lottery Data from API
+        async function fetchLotteryData() {
+            periodDisplay.innerText = "กำลังเชื่อมต่อข้อมูลจากสำนักงานสลากฯ...";
+            
+            try {
+                // Trying to fetch from GLO API directly
+                const response = await fetch("https://www.glo.or.th/api/lottery/getLatestLottery", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({}) // Some endpoints require empty body
+                });
+
+                if (!response.ok) throw new Error("Network response was not ok");
+                
+                const data = await response.json();
+                
+                if (data && data.response) {
+                    lotteryData = parseGLOResponse(data.response);
+                    periodDisplay.innerText = `ข้อมูลงวด: ${lotteryData.date}`;
+                } else {
+                    throw new Error("Invalid format");
+                }
+
+            } catch (error) {
+                console.warn("CORS Error or Fetch Failed. Using fallback mock data for demonstration.");
+                // **Fallback Mock Data** 
+                // Since front-end JS often cannot POST to third-party APIs without CORS enabled on their server,
+                // we provide mock data so the application remains functional for the user.
+                lotteryData = {
+                    date: "16 มิถุนายน 2569 (จำลอง)",
+                    prizes: {
+                        first: ["123456"],
+                        last2: ["99"],
+                        first3: ["111", "222"],
+                        last3: ["333", "444"],
+                        near1: ["123455", "123457"],
+                        second: ["234567", "345678", "456789", "567890", "678901"],
+                        // For demonstration, omitting full arrays of 3rd, 4th, 5th prizes to save space
+                    }
+                };
+                periodDisplay.innerText = `ข้อมูลงวด: ${lotteryData.date} (Offline Mode)`;
+            }
+        }
+
+        // Helper to map GLO API response to our usable format
+        function parseGLOResponse(apiResponse) {
+            // This structure depends heavily on the actual GLO JSON format.
+            // Adjust mappings based on exact API payload structure.
+            const result = {
+                date: apiResponse.date || "ไม่ระบุงวด",
+                prizes: {
+                    first: extractNumbers(apiResponse.data?.first),
+                    last2: extractNumbers(apiResponse.data?.last2),
+                    first3: extractNumbers(apiResponse.data?.last3f),
+                    last3: extractNumbers(apiResponse.data?.last3b),
+                    near1: extractNumbers(apiResponse.data?.near1),
+                    second: extractNumbers(apiResponse.data?.second),
+                    third: extractNumbers(apiResponse.data?.third),
+                    fourth: extractNumbers(apiResponse.data?.fourth),
+                    fifth: extractNumbers(apiResponse.data?.fifth),
+                }
+            };
+            return result;
+        }
+
+        function extractNumbers(prizeCategory) {
+            if (!prizeCategory || !prizeCategory.number) return [];
+            return prizeCategory.number.map(item => item.value);
+        }
+
+        // --- STREAMING_CHUNK:Writing the prize checking algorithm... ---
+        function checkPrize(numberStr) {
+            if (!lotteryData) {
+                showModal('แจ้งเตือน', 'ยังโหลดข้อมูลไม่เสร็จสิ้น กรุณารอสักครู่', 'error');
+                return;
+            }
+
+            // Ensure 6 digits
+            if (!/^\d{6}$/.test(numberStr)) {
+                showModal('ข้อมูลไม่ถูกต้อง', 'กรุณากรอกตัวเลขให้ครบ 6 หลัก', 'error');
+                return;
+            }
+
+            // UI update
+            resultSection.classList.remove('hidden');
+            setTimeout(() => {
+                resultSection.classList.remove('scale-95', 'opacity-0');
+            }, 10);
+            scannedNumberDisplay.innerText = numberStr;
+            prizeStatusBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-3xl text-gray-400"></i><p class="text-sm text-gray-500 mt-2">กำลังตรวจสอบ...</p>';
+            prizeStatusBox.className = "py-4 px-2 rounded-xl text-lg font-bold flex flex-col items-center justify-center gap-2 min-h-[100px] bg-gray-50 border border-gray-200 mt-4";
+
+            // Simulate slight delay for effect
+            setTimeout(() => {
+                const prizes = lotteryData.prizes;
+                let wonPrizes = [];
+
+                // Check First Prize
+                if (prizes.first && prizes.first.includes(numberStr)) wonPrizes.push("รางวัลที่ 1");
+                
+                // Check Near First
+                if (prizes.near1 && prizes.near1.includes(numberStr)) wonPrizes.push("รางวัลข้างเคียงรางวัลที่ 1");
+
+                // Check Last 2 Digits
+                const last2Str = numberStr.slice(-2);
+                if (prizes.last2 && prizes.last2.includes(last2Str)) wonPrizes.push("เลขท้าย 2 ตัว");
+
+                // Check First 3 Digits
+                const first3Str = numberStr.slice(0, 3);
+                if (prizes.first3 && prizes.first3.includes(first3Str)) wonPrizes.push("เลขหน้า 3 ตัว");
+
+                // Check Last 3 Digits
+                const last3Str = numberStr.slice(-3);
+                if (prizes.last3 && prizes.last3.includes(last3Str)) wonPrizes.push("เลขท้าย 3 ตัว");
+
+                // Check 2nd, 3rd, 4th, 5th
+                if (prizes.second && prizes.second.includes(numberStr)) wonPrizes.push("รางวัลที่ 2");
+                if (prizes.third && prizes.third.includes(numberStr)) wonPrizes.push("รางวัลที่ 3");
+                if (prizes.fourth && prizes.fourth.includes(numberStr)) wonPrizes.push("รางวัลที่ 4");
+                if (prizes.fifth && prizes.fifth.includes(numberStr)) wonPrizes.push("รางวัลที่ 5");
+
+                // Render Results
+                if (wonPrizes.length > 0) {
+                    prizeStatusBox.className = "py-4 px-2 rounded-xl text-lg font-bold flex flex-col items-center justify-center gap-2 min-h-[100px] bg-green-100 border-2 border-green-400 text-green-700 mt-4 shadow-inner";
+                    prizeStatusBox.innerHTML = `
+                        <i class="fa-solid fa-crown text-4xl text-yellow-500 mb-1 drop-shadow"></i>
+                        <span class="text-xl">ขอแสดงความยินดี!</span>
+                        <div class="text-base font-medium mt-1 text-center">คุณถูก ${wonPrizes.join(', ')}</div>
+                    `;
+                } else {
+                    prizeStatusBox.className = "py-4 px-2 rounded-xl text-lg font-bold flex flex-col items-center justify-center gap-2 min-h-[100px] bg-red-50 border-2 border-red-200 text-red-600 mt-4";
+                    prizeStatusBox.innerHTML = `
+                        <i class="fa-regular fa-face-frown-open text-4xl mb-1"></i>
+                        <span>เสียใจด้วย</span>
+                        <div class="text-sm font-medium mt-1">สลากใบนี้ไม่ถูกรางวัล</div>
+                    `;
+                }
+            }, 800);
+        }
+
+        // --- STREAMING_CHUNK:Handling UI interactions and camera events... ---
+        // QR Scanner Logic
+        function onScanSuccess(decodedText, decodedResult) {
+            // Stop scanning immediately to prevent multiple triggers
+            if(isScanning) stopScanning();
+
+            // Thai Lottery QR format usually contains URLs or long strings. 
+            // We use Regex to find the first 6 consecutive numbers.
+            const match = decodedText.match(/\d{6}/);
+            
+            if (match) {
+                const extractedNumber = match[0];
+                manualInput.value = extractedNumber; // Sync input box
+                checkPrize(extractedNumber);
+            } else {
+                showModal('ตรวจจับไม่พบตัวเลข', 'ไม่พบเลข 6 หลักใน QR Code นี้ กรุณาลองใหม่อีกครั้ง หรือกรอกเลขด้วยตนเอง', 'error');
+            }
+        }
+
+        function onScanFailure(error) {
+            // Silent error handling for continuous scanning
+            // console.warn(`Code scan error = ${error}`);
+        }
+
+        async function startScanning() {
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
+            }
+
+            try {
+                readerPlaceholder.style.display = 'none';
+                startScanBtn.classList.add('hidden');
+                stopScanBtn.classList.remove('hidden');
+                resultSection.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => resultSection.classList.add('hidden'), 300);
+                
+                await html5QrCode.start(
+                    { facingMode: "environment" }, // Prefer back camera
+                    {
+                        fps: 10,
+                        qrbox: { width: 250, height: 250 }
+                    },
+                    onScanSuccess,
+                    onScanFailure
+                );
+                isScanning = true;
+            } catch (err) {
+                console.error(err);
+                readerPlaceholder.style.display = 'block';
+                startScanBtn.classList.remove('hidden');
+                stopScanBtn.classList.add('hidden');
+                showModal('เกิดข้อผิดพลาด', 'ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตให้เบราว์เซอร์ใช้งานกล้องของคุณ', 'error');
+            }
+        }
+
+        async function stopScanning() {
+            if (html5QrCode && isScanning) {
+                try {
+                    await html5QrCode.stop();
+                    isScanning = false;
+                    readerPlaceholder.style.display = 'block';
+                    startScanBtn.classList.remove('hidden');
+                    stopScanBtn.classList.add('hidden');
+                } catch (err) {
+                    console.error("Failed to stop scanning.", err);
+                }
+            }
+        }
+
+        // Event Listeners
+        startScanBtn.addEventListener('click', startScanning);
+        stopScanBtn.addEventListener('click', stopScanning);
+        
+        checkManualBtn.addEventListener('click', () => {
+            const val = manualInput.value.trim();
+            if(val.length === 6) {
+                if(isScanning) stopScanning();
+                checkPrize(val);
+            } else {
+                showModal('ข้อมูลไม่ครบ', 'กรุณากรอกตัวเลขให้ครบ 6 หลัก', 'error');
+            }
+        });
+
+        // Filter non-numeric input in manual input field
+        manualInput.addEventListener('input', function (e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+
+        scanAgainBtn.addEventListener('click', () => {
+            manualInput.value = '';
+            resultSection.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                resultSection.classList.add('hidden');
+                startScanning(); // Automatically open camera again
+            }, 300);
+        });
+
+        // Initialize App
+        window.onload = () => {
+            fetchLotteryData();
+        };
+
+    </script>
+</body>
+</html>
