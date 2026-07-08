@@ -21,25 +21,13 @@
         })();
     </script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ฟอนต์ Mali (self-hosted ผ่าน @fontsource แทน Google Fonts CDN) -->
+    <link href="./vendor/fonts/mali/mali.css" rel="stylesheet">
+
+    <!-- Tailwind CSS (คอมไพล์ล่วงหน้าด้วย Tailwind CLI แทน JIT runtime จาก CDN) -->
+    <link href="./vendor/tailwind/tailwind.min.css" rel="stylesheet">
+
     <script src="config.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Mali', 'sans-serif'] },
-                    colors: {
-                        bgLight: '#f0f4ff',
-                        bgDark: '#0d0f1e',
-                        textBlue: '#7c6fea',
-                        textDarkBlue: '#a89ff5'
-                    }
-                }
-            }
-        }
-    </script>
     <style>
         * { box-sizing: border-box; }
         
@@ -965,7 +953,10 @@
                         req.open('GET', url, true);
                         req.responseType = 'blob'; // โหลดเป็น blob มาเก็บไว้ใน Cache ชั่วคราวของเบราว์เซอร์
                         req.onload = updateProgress;
-                        req.onerror = updateProgress; // ถ้าพลาดก็ให้ผ่านไป จะได้ไม่ค้าง
+                        req.onerror = () => {
+                            console.warn('Preload failed for audio file:', url);
+                            updateProgress(); // ถ้าพลาดก็ให้ผ่านไป จะได้ไม่ค้าง
+                        };
                         req.send();
                     } catch (e) {
                         console.warn('XHR Preload Skipped (Invalid URL):', url);
@@ -974,7 +965,10 @@
                 } else {
                     const img = new Image();
                     img.onload = updateProgress;
-                    img.onerror = updateProgress;
+                    img.onerror = () => {
+                        console.warn('Preload failed for image file:', url);
+                        updateProgress();
+                    };
                     img.src = url;
                 }
             });
