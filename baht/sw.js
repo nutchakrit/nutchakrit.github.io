@@ -5,14 +5,39 @@
 
 importScripts('./config.js');
 
-// ปรับให้มีเฉพาะไฟล์ที่ใช้งานจริง
+// ปรับให้มีเฉพาะไฟล์ที่ใช้งานจริง (ทั้งหมด self-hosted แล้ว ไม่พึ่ง CDN ภายนอก)
 const urlsToCache = [
   './',
   './index.html',
   './config.js',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  // ===== Vendor assets (self-hosted แทน CDN) =====
+  './vendor/tailwind/tailwind.min.css',
+  './vendor/html2canvas/html2canvas.min.js',
+  './vendor/firebase/firebase-bundle.min.js',
+  './vendor/fonts/sarabun/sarabun.css',
+  './vendor/fonts/space-mono/space-mono.css',
+  './vendor/fonts/sarabun/sarabun-thai-100-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-thai-300-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-thai-400-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-thai-700-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-thai-800-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-100-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-300-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-400-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-700-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-800-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-ext-100-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-ext-300-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-ext-400-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-ext-700-normal.woff2',
+  './vendor/fonts/sarabun/sarabun-latin-ext-800-normal.woff2',
+  './vendor/fonts/space-mono/space-mono-latin-400-normal.woff2',
+  './vendor/fonts/space-mono/space-mono-latin-700-normal.woff2',
+  './vendor/fonts/space-mono/space-mono-latin-ext-400-normal.woff2',
+  './vendor/fonts/space-mono/space-mono-latin-ext-700-normal.woff2'
 ];
 
 const RATE_CACHE_KEY = 'necomaid-cached-rate-thb';

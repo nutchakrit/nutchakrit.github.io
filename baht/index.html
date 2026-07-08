@@ -31,32 +31,16 @@
         })();
     </script>
 
-    <!-- เพิ่มฟอนต์ Space Mono สำหรับหน้าตาใบเสร็จ -->
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@100;300;400;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- เพิ่ม html2canvas สำหรับสร้างรูปใบเสร็จ -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- ฟอนต์ Sarabun / Space Mono (self-hosted ผ่าน @fontsource แทน Google Fonts CDN) -->
+    <link href="./vendor/fonts/sarabun/sarabun.css" rel="stylesheet">
+    <link href="./vendor/fonts/space-mono/space-mono.css" rel="stylesheet">
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: { 
-                        sans: ['Sarabun', 'sans-serif'],
-                        mono: ['Space Mono', 'Sarabun', 'monospace'] // ฟอนต์สำหรับใบเสร็จ
-                    },
-                    colors: {
-                        mainBrand: '#00a650',
-                        fmGreen: '#00a650',
-                        darkBg: '#00102e',
-                        darkCard: '#001a40',
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind CSS (คอมไพล์แล้วล่วงหน้าด้วย Tailwind CLI แทนการโหลด JIT runtime จาก CDN) -->
+    <link href="./vendor/tailwind/tailwind.min.css" rel="stylesheet">
+
+    <!-- html2canvas สำหรับสร้างรูปใบเสร็จ (self-hosted) -->
+    <script src="./vendor/html2canvas/html2canvas.min.js"></script>
+
     <style>
         body { -webkit-font-smoothing: antialiased; }
         .hide-arrows::-webkit-outer-spin-button, .hide-arrows::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -386,9 +370,7 @@
 
     <!-- Main Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut, getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "./vendor/firebase/firebase-bundle.min.js";
 
         // Global State - สลับดึงเรท THB
         const API_URL = "https://open.er-api.com/v6/latest/THB";
@@ -550,11 +532,10 @@
                     auth = getAuth(fApp);
                     db = getFirestore(fApp);
 
-                    if (!isCustomConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth).catch(()=>{});
-                    }
+                    // หมายเหตุ: ไม่เรียก signInAnonymously()/signInWithCustomToken() ตรงนี้แบบไม่มีเงื่อนไขแล้ว
+                    // เพราะมันจะไป overwrite session ของ Google ที่ค้างอยู่ (persist ใน localStorage)
+                    // ทำให้ต้องล็อกอินใหม่ทุกครั้งที่เปิดแอป ให้ onAuthStateChanged ด้านล่าง
+                    // เป็นคนเช็คก่อนว่ามี user ค้างอยู่แล้วหรือยัง ค่อย fallback เป็น anonymous ทีหลัง
 
                     const provider = new GoogleAuthProvider();
                     document.getElementById('google-login-btn').addEventListener('click', async () => {
@@ -576,7 +557,22 @@
                         } catch (error) { console.error(error); }
                     });
 
-                    onAuthStateChanged(auth, (u) => {
+                    let hasTriedInitialSignIn = false;
+                    onAuthStateChanged(auth, async (u) => {
+                        // ยังไม่มี session ค้างอยู่เลย (เปิดแอปครั้งแรกจริงๆ หรือเพิ่ง signOut)
+                        // ค่อย sign in แบบ fallback ตรงนี้ครั้งเดียว
+                        if (!u && !hasTriedInitialSignIn) {
+                            hasTriedInitialSignIn = true;
+                            try {
+                                if (!isCustomConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                    await signInWithCustomToken(auth, __initial_auth_token);
+                                } else {
+                                    await signInAnonymously(auth);
+                                }
+                            } catch (e) { hideLoading(); }
+                            return; // onAuthStateChanged จะถูกยิงซ้ำอีกรอบพร้อม user ใหม่ที่ได้มา
+                        }
+
                         user = u;
                         const loginBtn = document.getElementById('google-login-btn');
                         const profile = document.getElementById('user-profile');
